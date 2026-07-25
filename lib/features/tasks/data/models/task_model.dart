@@ -64,20 +64,22 @@ class TaskModel {
     String? id,
     String? title,
     String? description,
+    bool clearDescription = false,
     bool? isCompleted,
     int? priority,
     String? category,
     DateTime? dueDate,
+    bool clearDueDate = false,
     DateTime? createdAt,
   }) {
     return TaskModel(
       id: id ?? this.id,
       title: title ?? this.title,
-      description: description ?? this.description,
+      description: clearDescription ? null : (description ?? this.description),
       isCompleted: isCompleted ?? this.isCompleted,
       priority: priority ?? this.priority,
       category: category ?? this.category,
-      dueDate: dueDate ?? this.dueDate,
+      dueDate: clearDueDate ? null : (dueDate ?? this.dueDate),
       createdAt: createdAt ?? this.createdAt,
     );
   }

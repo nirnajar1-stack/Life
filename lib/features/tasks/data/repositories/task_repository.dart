@@ -64,4 +64,39 @@ class TaskRepository {
       rethrow;
     }
   }
+
+  Future<void> updateTask(TaskModel task) async {
+    try {
+      await _client.from(_tableName).update({
+        'title': task.title,
+        'description': task.description,
+        'is_completed': task.isCompleted,
+        'priority': task.priority,
+        'category': task.category,
+        'due_date': task.dueDate?.toIso8601String(),
+      }).eq('id', task.id);
+    } catch (error, stackTrace) {
+      developer.log(
+        'Failed to update task',
+        name: 'TaskRepository.updateTask',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      rethrow;
+    }
+  }
+
+  Future<void> deleteTask(String taskId) async {
+    try {
+      await _client.from(_tableName).delete().eq('id', taskId);
+    } catch (error, stackTrace) {
+      developer.log(
+        'Failed to delete task',
+        name: 'TaskRepository.deleteTask',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      rethrow;
+    }
+  }
 }

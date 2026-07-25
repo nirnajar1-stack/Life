@@ -1,11 +1,34 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart' hide TextDirection;
 
 import '../../data/models/task_model.dart';
 import '../../domain/providers/task_providers.dart';
 
+final _dateFormat = DateFormat('dd/MM/yyyy');
+
+class _CategoryOption {
+  const _CategoryOption(this.name, this.icon, this.color);
+  final String name;
+  final IconData icon;
+  final Color color;
+}
+
+const _categories = [
+  _CategoryOption('כללי', Icons.assignment_outlined, Colors.grey),
+  _CategoryOption(
+      'פיננסי', Icons.account_balance_wallet_outlined, Colors.green),
+  _CategoryOption('בריאותי', Icons.favorite_border, Colors.red),
+  _CategoryOption('אישי', Icons.person_outline, Colors.blue),
+];
+
+/// Create or edit a task.
 class AddTaskScreen extends ConsumerStatefulWidget {
-  const AddTaskScreen({super.key});
+  const AddTaskScreen({super.key, this.task});
+
+  final TaskModel? task;
+
+  bool get isEditing => task != null;
 
   @override
   ConsumerState<AddTaskScreen> createState() => _AddTaskScreenState();
@@ -14,22 +37,39 @@ class AddTaskScreen extends ConsumerStatefulWidget {
 class _AddTaskScreenState extends ConsumerState<AddTaskScreen> {
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
-  String _selectedCategory = 'כללי';
+  late String _selectedCategory;
+  late int _priority;
+  DateTime? _dueDate;
   bool _isSaving = false;
 
-  // רשימת הקטגוריות עם האייקונים והצבעים שלהן
-  final List<Map<String, dynamic>> _categories = [
-    {'name': 'כללי', 'icon': Icons.assignment_outlined, 'color': Colors.grey},
-    {'name': 'פיננסי', 'icon': Icons.account_balance_wallet_outlined, 'color': Colors.green},
-    {'name': 'בריאותי', 'icon': Icons.favorite_border, 'color': Colors.red},
-    {'name': 'אישי', 'icon': Icons.person_outline, 'color': Colors.blue},
-  ];
+  @override
+  void initState() {
+    super.initState();
+    final t = widget.task;
+    _titleController.text = t?.title ?? '';
+    _descriptionController.text = t?.description ?? '';
+    _selectedCategory = t?.category ?? 'כללי';
+    _priority = t?.priority ?? 2;
+    _dueDate = t?.dueDate;
+  }
 
   @override
   void dispose() {
     _titleController.dispose();
     _descriptionController.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickDueDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _dueDate ?? DateTime.now(),
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+    );
+    if (picked != null) {
+      setState(() => _dueDate = picked);
+    }
   }
 
   Future<void> _saveTask() async {
@@ -42,27 +82,45 @@ class _AddTaskScreenState extends ConsumerState<AddTaskScreen> {
     }
 
     setState(() => _isSaving = true);
-
     final description = _descriptionController.text.trim();
-    // id/createdAt are DB-generated and ignored by toJsonForInsert().
-    final task = TaskModel(
-      id: '',
-      title: title,
-      description: description.isEmpty ? null : description,
-      isCompleted: false,
-      priority: 2,
-      category: _selectedCategory,
-      createdAt: DateTime.now(),
-    );
+    final repo = ref.read(taskRepositoryProvider);
 
     try {
-      await ref.read(taskRepositoryProvider).createTask(task);
+      if (widget.isEditing) {
+        final updated = widget.task!.copyWith(
+          title: title,
+          description: description.isEmpty ? null : description,
+          clearDescription: description.isEmpty,
+          category: _selectedCategory,
+          priority: _priority,
+          dueDate: _dueDate,
+          clearDueDate: _dueDate == null,
+        );
+        await repo.updateTask(updated);
+      } else {
+        final created = TaskModel(
+          id: '',
+          title: title,
+          description: description.isEmpty ? null : description,
+          isCompleted: false,
+          priority: _priority,
+          category: _selectedCategory,
+          dueDate: _dueDate,
+          createdAt: DateTime.now(),
+        );
+        await repo.createTask(created);
+      }
+
       ref.invalidate(activeTasksProvider);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('המשימה "$title" נשמרה ב-Supabase! 🎉')),
+        SnackBar(
+          content: Text(widget.isEditing
+              ? 'המשימה עודכנה'
+              : 'המשימה "$title" נשמרה'),
+        ),
       );
-      Navigator.of(context).pop();
+      Navigator.of(context).pop(true);
     } catch (error) {
       if (!mounted) return;
       setState(() => _isSaving = false);
@@ -74,33 +132,36 @@ class _AddTaskScreenState extends ConsumerState<AddTaskScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // בדיקה האם מדובר במסך רחב (Web/טאבלט)
     final isWideScreen = MediaQuery.of(context).size.width > 600;
 
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('משימה חדשה תחום חיים'),
+          title: Text(widget.isEditing ? 'עריכת משימה' : 'משימה חדשה'),
           centerTitle: true,
         ),
         body: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24.0),
+            padding: const EdgeInsets.all(24),
             child: Container(
               constraints: const BoxConstraints(maxWidth: 600),
               decoration: isWideScreen
                   ? BoxDecoration(
-                      color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                      color: Theme.of(context)
+                          .colorScheme
+                          .surfaceContainerHighest
+                          .withValues(alpha: 0.3),
                       borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+                      border: Border.all(
+                        color: Theme.of(context).colorScheme.outlineVariant,
+                      ),
                     )
                   : null,
-              padding: isWideScreen ? const EdgeInsets.all(32.0) : EdgeInsets.zero,
+              padding: isWideScreen ? const EdgeInsets.all(32) : EdgeInsets.zero,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // שדה כותרת
                   TextField(
                     controller: _titleController,
                     decoration: const InputDecoration(
@@ -110,8 +171,6 @@ class _AddTaskScreenState extends ConsumerState<AddTaskScreen> {
                     ),
                   ),
                   const SizedBox(height: 20),
-
-                  // שדה תיאור
                   TextField(
                     controller: _descriptionController,
                     maxLines: 3,
@@ -122,58 +181,113 @@ class _AddTaskScreenState extends ConsumerState<AddTaskScreen> {
                     ),
                   ),
                   const SizedBox(height: 24),
-
-                  // כותרת לבחירת קטגוריה
                   Text(
                     'קטגוריית תחום חיים:',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleMedium
+                        ?.copyWith(fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 12),
-
-                  // כפתורי בחירה מעוצבים (ChoiceChips)
                   Wrap(
-                    spacing: 10.0,
-                    runSpacing: 10.0,
+                    spacing: 10,
+                    runSpacing: 10,
                     children: _categories.map((cat) {
-                      final isSelected = _selectedCategory == cat['name'];
-                      final Color color = cat['color'];
-
+                      final selected = _selectedCategory == cat.name;
                       return ChoiceChip(
-                        label: Text(cat['name']),
-                        avatar: Icon(cat['icon'], color: isSelected ? Colors.white : color),
-                        selected: isSelected,
-                        selectedColor: color,
-                        labelStyle: TextStyle(color: isSelected ? Colors.white : Colors.black87),
-                        onSelected: (bool selected) {
-                          if (selected) {
-                            setState(() {
-                              _selectedCategory = cat['name'];
-                            });
+                        label: Text(cat.name),
+                        avatar: Icon(
+                          cat.icon,
+                          color: selected ? Colors.white : cat.color,
+                        ),
+                        selected: selected,
+                        selectedColor: cat.color,
+                        labelStyle: TextStyle(
+                          color: selected ? Colors.white : Colors.black87,
+                        ),
+                        onSelected: (v) {
+                          if (v) {
+                            setState(() => _selectedCategory = cat.name);
                           }
                         },
                       );
                     }).toList(),
                   ),
-                  const SizedBox(height: 40),
-
-                  // כפתור שמירה פיזי
+                  const SizedBox(height: 24),
+                  Text(
+                    'עדיפות',
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleMedium
+                        ?.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  SegmentedButton<int>(
+                    segments: const [
+                      ButtonSegment(value: 1, label: Text('גבוהה')),
+                      ButtonSegment(value: 2, label: Text('בינונית')),
+                      ButtonSegment(value: 3, label: Text('נמוכה')),
+                    ],
+                    selected: {_priority},
+                    onSelectionChanged: (v) =>
+                        setState(() => _priority = v.first),
+                  ),
+                  const SizedBox(height: 20),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.event_outlined),
+                    title: Text(
+                      _dueDate == null
+                          ? 'ללא תאריך יעד'
+                          : 'יעד: ${_dateFormat.format(_dueDate!)}',
+                    ),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (_dueDate != null)
+                          IconButton(
+                            tooltip: 'נקה',
+                            onPressed: () => setState(() => _dueDate = null),
+                            icon: const Icon(Icons.clear),
+                          ),
+                        TextButton(
+                          onPressed: _pickDueDate,
+                          child: const Text('בחר תאריך'),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
                   SizedBox(
                     width: double.infinity,
                     height: 50,
                     child: ElevatedButton(
                       onPressed: _isSaving ? null : _saveTask,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Theme.of(context).colorScheme.primary,
-                        foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        backgroundColor:
+                            Theme.of(context).colorScheme.primary,
+                        foregroundColor:
+                            Theme.of(context).colorScheme.onPrimary,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
                       child: _isSaving
                           ? const SizedBox(
                               width: 22,
                               height: 22,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
                             )
-                          : const Text('שמור משימה', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                          : Text(
+                              widget.isEditing ? 'שמור שינויים' : 'שמור משימה',
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                     ),
                   ),
                 ],
