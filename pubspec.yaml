@@ -1,0 +1,39 @@
+name: life_app
+description: "A personal Life Management Super-App built with Flutter and Supabase."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Icons
+  cupertino_icons: ^1.0.8
+
+  # Backend & Database
+  supabase_flutter: ^2.8.0
+
+  # State Management (Clean Architecture)
+  flutter_riverpod: ^2.5.1
+  riverpod_annotation: ^2.3.5
+
+  # Android Native Home Widgets Integration
+  home_widget: ^0.7.0
+
+  # Utilities for Expenses & Health (Dates, formatting)
+  intl: ^0.19.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  # Code generation for Riverpod (Makes writing providers easier)
+  riverpod_generator: ^2.4.0
+  build_runner: ^2.4.9
+
+flutter:
+  uses-material-design: true
