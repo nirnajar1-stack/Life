@@ -1,6 +1,6 @@
 {
   "framework": null,
-  "installCommand": "if [ -d flutter ]; then git -C flutter pull --ff-only; else git clone --depth 1 --branch stable https://github.com/flutter/flutter.git flutter; fi && flutter/bin/flutter config --no-analytics --enable-web && flutter/bin/flutter pub get",
-  "buildCommand": "flutter/bin/flutter build web --release --no-tree-shake-icons",
+  "installCommand": "true",
+  "buildCommand": "bash scripts/vercel.sh",
   "outputDirectory": "build/web"
 }
