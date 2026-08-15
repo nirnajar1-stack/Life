@@ -11,23 +11,22 @@ class TaskRepository {
 
   static const String _tableName = 'tasks';
 
-  Future<List<TaskModel>> fetchActiveTasks({String? category}) async {
+  Future<List<TaskModel>> fetchWorkspaceTasks({String? category}) async {
     try {
-      var query = _client.from(_tableName).select().eq('is_completed', false);
-
+      var query = _client.from(_tableName).select().neq('status', 'archived');
       if (category != null) {
         query = query.eq('category', category);
       }
-
-      final List<Map<String, dynamic>> rows = await query
-          .order('priority', ascending: true)
-          .order('due_date', ascending: true, nullsFirst: false);
-
-      return rows.map(TaskModel.fromJson).toList();
+      final rows = await query
+          .order('sort_order', ascending: true)
+          .order('created_at', ascending: true);
+      return (rows as List)
+          .map((row) => TaskModel.fromJson(Map<String, dynamic>.from(row as Map)))
+          .toList();
     } catch (error, stackTrace) {
       developer.log(
-        'Failed to fetch active tasks',
-        name: 'TaskRepository.fetchActiveTasks',
+        'Failed to fetch workspace tasks',
+        name: 'TaskRepository.fetchWorkspaceTasks',
         error: error,
         stackTrace: stackTrace,
       );
@@ -35,15 +34,23 @@ class TaskRepository {
     }
   }
 
-  Future<void> toggleTaskStatus(String taskId, bool isCompleted) async {
+  Future<List<TaskModel>> fetchActiveTasks({String? category}) async {
+    final all = await fetchWorkspaceTasks(category: category);
+    return all.where((task) => task.isOpen).toList();
+  }
+
+  Future<TaskModel> insertTask(TaskModel task) async {
     try {
-      await _client
+      final row = await _client
           .from(_tableName)
-          .update({'is_completed': isCompleted}).eq('id', taskId);
+          .insert(task.toJsonForInsert())
+          .select()
+          .single();
+      return TaskModel.fromJson(Map<String, dynamic>.from(row));
     } catch (error, stackTrace) {
       developer.log(
-        'Failed to toggle task status',
-        name: 'TaskRepository.toggleTaskStatus',
+        'Failed to create task',
+        name: 'TaskRepository.insertTask',
         error: error,
         stackTrace: stackTrace,
       );
@@ -52,12 +59,19 @@ class TaskRepository {
   }
 
   Future<void> createTask(TaskModel task) async {
+    await insertTask(task);
+  }
+
+  Future<void> updateTask(TaskModel task) async {
     try {
-      await _client.from(_tableName).insert(task.toJsonForInsert());
+      await _client
+          .from(_tableName)
+          .update(task.toJsonForUpdate())
+          .eq('id', task.id);
     } catch (error, stackTrace) {
       developer.log(
-        'Failed to create task',
-        name: 'TaskRepository.createTask',
+        'Failed to update task',
+        name: 'TaskRepository.updateTask',
         error: error,
         stackTrace: stackTrace,
       );
@@ -65,20 +79,19 @@ class TaskRepository {
     }
   }
 
-  Future<void> updateTask(TaskModel task) async {
+  Future<void> patchTask(String id, Map<String, dynamic> values) async {
+    await _client.from(_tableName).update(values).eq('id', id);
+  }
+
+  Future<void> toggleTaskStatus(String taskId, bool isCompleted) async {
     try {
       await _client.from(_tableName).update({
-        'title': task.title,
-        'description': task.description,
-        'is_completed': task.isCompleted,
-        'priority': task.priority,
-        'category': task.category,
-        'due_date': task.dueDate?.toIso8601String(),
-      }).eq('id', task.id);
+        'status': isCompleted ? 'done' : 'ready',
+      }).eq('id', taskId);
     } catch (error, stackTrace) {
       developer.log(
-        'Failed to update task',
-        name: 'TaskRepository.updateTask',
+        'Failed to toggle task status',
+        name: 'TaskRepository.toggleTaskStatus',
         error: error,
         stackTrace: stackTrace,
       );

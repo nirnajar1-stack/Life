@@ -1,0 +1,2 @@
+-- GTD / Eisenhower / timeblocking columns on tasks, plus projects.
+-- Applied remotely via Supabase MCP as gtd_task_system.

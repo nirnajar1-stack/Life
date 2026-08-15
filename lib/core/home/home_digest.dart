@@ -2,6 +2,8 @@ import 'package:intl/intl.dart';
 
 import '../../features/expenses/data/models/expense_model.dart';
 import '../../features/expenses/domain/models/expense_category_taxonomy.dart';
+import '../../features/habits/data/models/habit_models.dart';
+import '../../features/habits/domain/habit_engine.dart';
 import '../../features/tasks/data/models/task_model.dart';
 
 final _money =
@@ -19,6 +21,8 @@ class HomeDigest {
     required this.topCategory,
     required this.topCategoryAmount,
     required this.recent,
+    this.habitsDueToday = 0,
+    this.habitsDoneToday = 0,
   });
 
   final List<TaskModel> overdue;
@@ -31,6 +35,13 @@ class HomeDigest {
   final String? topCategory;
   final double? topCategoryAmount;
   final List<ExpenseModel> recent;
+  final int habitsDueToday;
+  final int habitsDoneToday;
+
+  int get habitsPendingToday {
+    final pending = habitsDueToday - habitsDoneToday;
+    return pending < 0 ? 0 : pending;
+  }
 
   bool get hasUrgentTasks => overdue.isNotEmpty || today.isNotEmpty;
 
@@ -50,31 +61,35 @@ class HomeDigest {
 
   String get headline {
     final money = monthTotal > 0 ? ' החודש יצאו ${_money.format(monthTotal)}.' : '';
+    final habits = habitsPendingToday > 0
+        ? ' נשארו $habitsPendingToday הרגלים.'
+        : (habitsDueToday > 0 ? ' השגרה הושלמה.' : '');
 
     if (overdue.isNotEmpty && today.isNotEmpty) {
-      return 'יש ${_countPhrase(overdue.length, 'באיחור')} ו־${_countPhrase(today.length, 'להיום')}.$money';
+      return 'יש ${_countPhrase(overdue.length, 'באיחור')} ו־${_countPhrase(today.length, 'להיום')}.$habits$money';
     }
     if (overdue.isNotEmpty) {
-      return 'יש ${_countPhrase(overdue.length, 'באיחור')}.$money';
+      return 'יש ${_countPhrase(overdue.length, 'באיחור')}.$habits$money';
     }
     if (today.isNotEmpty) {
-      return 'יש ${_countPhrase(today.length, 'להיום')}.$money';
+      return 'יש ${_countPhrase(today.length, 'להיום')}.$habits$money';
     }
     if (openCount == 0) {
-      if (monthTotal <= 0) {
-        return 'הכל שקט — אפשר להתחיל במשימה או בהוצאה.';
+      if (monthTotal <= 0 && habitsDueToday == 0) {
+        return 'הכל שקט — אפשר להתחיל במשימה, בהרגל או בהוצאה.';
       }
-      return 'אין משימות פתוחות.$money';
+      return 'אין משימות פתוחות.$habits$money';
     }
     if (thisWeek.isNotEmpty) {
-      return '${_countPhrase(thisWeek.length, 'השבוע')}, בלי דחיפות להיום.$money';
+      return '${_countPhrase(thisWeek.length, 'השבוע')}, בלי דחיפות להיום.$habits$money';
     }
-    return '$openCount משימות פתוחות, בלי יעד קרוב.$money';
+    return '$openCount משימות פתוחות, בלי יעד קרוב.$habits$money';
   }
 
   static HomeDigest from({
     required List<TaskModel> tasks,
     required List<ExpenseModel> expenses,
+    List<HabitSnapshot> habits = const [],
     DateTime? now,
   }) {
     final timestamp = now ?? DateTime.now();
@@ -83,15 +98,18 @@ class HomeDigest {
     final previousStart = DateTime(timestamp.year, timestamp.month - 1);
 
     final overdue = tasks.where((t) => t.isOverdue).toList()
-      ..sort((a, b) => (a.dueDate ?? a.createdAt).compareTo(b.dueDate ?? b.createdAt));
+      ..sort((a, b) =>
+          (a.dueDate ?? a.createdAt).compareTo(b.dueDate ?? a.createdAt));
     final today = tasks.where((t) => t.isDueToday).toList()
       ..sort((a, b) => a.priority.compareTo(b.priority));
     final thisWeek = tasks.where((t) => t.isDueThisWeek).toList()
-      ..sort((a, b) => (a.dueDate ?? a.createdAt).compareTo(b.dueDate ?? b.createdAt));
+      ..sort((a, b) =>
+          (a.dueDate ?? a.createdAt).compareTo(b.dueDate ?? a.createdAt));
 
     final thisMonth = expenses.where((e) => !e.createdAt.isBefore(monthStart));
     final previousMonth = expenses.where(
-      (e) => !e.createdAt.isBefore(previousStart) && e.createdAt.isBefore(monthStart),
+      (e) =>
+          !e.createdAt.isBefore(previousStart) && e.createdAt.isBefore(monthStart),
     );
     final todayItems = expenses.where((e) => !e.createdAt.isBefore(todayStart));
 
@@ -112,6 +130,13 @@ class HomeDigest {
     final recent = [...expenses]
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
+    final dueHabits =
+        habits.where((item) => habitIsDueOn(item.habit, timestamp));
+    final doneHabits = dueHabits.where((item) {
+      final log = item.logOn(timestamp);
+      return log != null && log.countsForStreak;
+    });
+
     return HomeDigest(
       overdue: overdue,
       today: today,
@@ -124,6 +149,8 @@ class HomeDigest {
       topCategory: topCategory,
       topCategoryAmount: topAmount,
       recent: recent.take(3).toList(),
+      habitsDueToday: dueHabits.length,
+      habitsDoneToday: doneHabits.length,
     );
   }
 

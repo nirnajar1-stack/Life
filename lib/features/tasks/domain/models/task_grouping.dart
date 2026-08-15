@@ -56,6 +56,7 @@ bool taskMatchesQuery(TaskModel task, String query) {
     task.title,
     task.description ?? '',
     task.category,
+    ...task.contextTags,
   ].join(' ').toLowerCase();
   return haystack.contains(q.toLowerCase());
 }

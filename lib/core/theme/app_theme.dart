@@ -16,6 +16,7 @@ class AppColors {
   static const Color danger = Color(0xFFDC2626);
   static const Color warning = Color(0xFFD97706);
   static const Color shared = Color(0xFF7C3AED);
+  static const Color habits = Color(0xFF7C3AED);
 }
 
 class AppTheme {

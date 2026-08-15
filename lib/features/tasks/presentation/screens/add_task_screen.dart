@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 
 import '../../data/models/task_model.dart';
+import '../../domain/models/task_enums.dart';
 import '../../domain/providers/task_providers.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/adaptive_form.dart';
@@ -40,7 +41,9 @@ class _AddTaskScreenState extends ConsumerState<AddTaskScreen> {
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
   late String _selectedCategory;
-  late int _priority;
+  late Eisenhower _eisenhower;
+  late TaskStatus _status;
+  late EnergyLevel _energy;
   DateTime? _dueDate;
   bool _isSaving = false;
 
@@ -51,7 +54,9 @@ class _AddTaskScreenState extends ConsumerState<AddTaskScreen> {
     _titleController.text = t?.title ?? '';
     _descriptionController.text = t?.description ?? '';
     _selectedCategory = t?.category ?? 'כללי';
-    _priority = t?.priority ?? 2;
+    _eisenhower = t?.eisenhower ?? Eisenhower.schedule;
+    _status = t?.status ?? TaskStatus.ready;
+    _energy = t?.energyLevel ?? EnergyLevel.medium;
     _dueDate = t?.dueDate;
   }
 
@@ -85,7 +90,6 @@ class _AddTaskScreenState extends ConsumerState<AddTaskScreen> {
 
     setState(() => _isSaving = true);
     final description = _descriptionController.text.trim();
-    final repo = ref.read(taskRepositoryProvider);
 
     try {
       if (widget.isEditing) {
@@ -94,26 +98,28 @@ class _AddTaskScreenState extends ConsumerState<AddTaskScreen> {
           description: description.isEmpty ? null : description,
           clearDescription: description.isEmpty,
           category: _selectedCategory,
-          priority: _priority,
+          eisenhower: _eisenhower,
+          status: _status,
+          energyLevel: _energy,
           dueDate: _dueDate,
           clearDueDate: _dueDate == null,
         );
-        await repo.updateTask(updated);
+        await ref.read(tasksControllerProvider.notifier).updateTask(updated);
       } else {
         final created = TaskModel(
           id: '',
           title: title,
           description: description.isEmpty ? null : description,
-          isCompleted: false,
-          priority: _priority,
+          status: _status,
+          eisenhower: _eisenhower,
           category: _selectedCategory,
           dueDate: _dueDate,
+          energyLevel: _energy,
           createdAt: DateTime.now(),
         );
-        await repo.createTask(created);
+        await ref.read(taskRepositoryProvider).createTask(created);
+        await ref.read(tasksControllerProvider.notifier).reload();
       }
-
-      ref.invalidate(activeTasksProvider);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -212,22 +218,69 @@ class _AddTaskScreenState extends ConsumerState<AddTaskScreen> {
                   ),
                   const SizedBox(height: 22),
                   Text(
-                    'עדיפות',
+                    'סטטוס',
                     style: Theme.of(context)
                         .textTheme
                         .titleSmall
                         ?.copyWith(fontWeight: FontWeight.w800),
                   ),
                   const SizedBox(height: 8),
-                  SegmentedButton<int>(
-                    segments: const [
-                      ButtonSegment(value: 1, label: Text('גבוהה')),
-                      ButtonSegment(value: 2, label: Text('בינונית')),
-                      ButtonSegment(value: 3, label: Text('נמוכה')),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final value in TaskStatus.values)
+                        ChoiceChip(
+                          showCheckmark: false,
+                          label: Text(value.labelHe),
+                          selected: _status == value,
+                          onSelected: (_) => setState(() => _status = value),
+                        ),
                     ],
-                    selected: {_priority},
-                    onSelectionChanged: (v) =>
-                        setState(() => _priority = v.first),
+                  ),
+                  const SizedBox(height: 22),
+                  Text(
+                    'אייזנהאואר',
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleSmall
+                        ?.copyWith(fontWeight: FontWeight.w800),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final value in Eisenhower.values)
+                        ChoiceChip(
+                          showCheckmark: false,
+                          label: Text('${value.shortLabel} · ${value.labelHe}'),
+                          selected: _eisenhower == value,
+                          onSelected: (_) =>
+                              setState(() => _eisenhower = value),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'אנרגיה',
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleSmall
+                        ?.copyWith(fontWeight: FontWeight.w800),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    children: [
+                      for (final value in EnergyLevel.values)
+                        ChoiceChip(
+                          showCheckmark: false,
+                          label: Text(value.labelHe),
+                          selected: _energy == value,
+                          onSelected: (_) => setState(() => _energy = value),
+                        ),
+                    ],
                   ),
                   const SizedBox(height: 16),
                   ListTile(

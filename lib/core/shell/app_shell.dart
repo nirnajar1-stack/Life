@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../features/expenses/presentation/screens/expenses_screen.dart';
+import '../../features/habits/presentation/screens/habits_screen.dart';
+import '../../features/tasks/domain/models/task_enums.dart';
 import '../../features/tasks/domain/providers/task_providers.dart';
 import '../../features/tasks/presentation/screens/tasks_list_screen.dart';
 import '../home/home_screen.dart';
@@ -25,6 +28,7 @@ class AppShell extends ConsumerWidget {
     final pages = const [
       HomeScreen(),
       TasksListScreen(),
+      HabitsScreen(),
       ExpensesScreen(),
     ];
 
@@ -42,88 +46,112 @@ class AppShell extends ConsumerWidget {
       );
     }
 
-    if (isDesktop) {
-      return Scaffold(
-        backgroundColor: AppColors.surface,
-        body: Row(
-          children: [
-            NavigationRail(
-              extended: MediaQuery.sizeOf(context).width >= 1180,
-              selectedIndex: index,
-              labelType: MediaQuery.sizeOf(context).width >= 1180
-                  ? NavigationRailLabelType.none
-                  : NavigationRailLabelType.all,
-              onDestinationSelected: (i) {
-                ref.read(appTabProvider.notifier).state = AppTab.values[i];
-              },
-              minExtendedWidth: 196,
-              leading: const Padding(
-                padding: EdgeInsets.fromLTRB(12, 20, 12, 16),
-                child: _BrandMark(),
-              ),
-              destinations: [
-                const NavigationRailDestination(
-                  icon: Icon(Icons.home_outlined),
-                  selectedIcon: Icon(Icons.home_rounded),
-                  label: Text('בית'),
-                ),
-                NavigationRailDestination(
-                  icon: badgeIcon(
-                    outlined: Icons.checklist_outlined,
-                    selected: Icons.checklist_rtl,
-                    isSelected: false,
+    void openCapture() {
+      ref.read(appTabProvider.notifier).state = AppTab.tasks;
+      ref.read(tasksWorkspaceViewProvider.notifier).state =
+          TasksWorkspaceView.inbox;
+      ref.read(captureFocusTickProvider.notifier).state++;
+    }
+
+    final scaffold = isDesktop
+        ? Scaffold(
+            backgroundColor: AppColors.surface,
+            body: Row(
+              children: [
+                NavigationRail(
+                  extended: MediaQuery.sizeOf(context).width >= 1180,
+                  selectedIndex: index,
+                  labelType: MediaQuery.sizeOf(context).width >= 1180
+                      ? NavigationRailLabelType.none
+                      : NavigationRailLabelType.all,
+                  onDestinationSelected: (i) {
+                    ref.read(appTabProvider.notifier).state = AppTab.values[i];
+                  },
+                  minExtendedWidth: 196,
+                  leading: const Padding(
+                    padding: EdgeInsets.fromLTRB(12, 20, 12, 16),
+                    child: _BrandMark(),
                   ),
-                  selectedIcon: badgeIcon(
-                    outlined: Icons.checklist_outlined,
-                    selected: Icons.checklist_rtl,
-                    isSelected: true,
-                  ),
-                  label: const Text('משימות'),
+                  destinations: [
+                    const NavigationRailDestination(
+                      icon: Icon(Icons.home_outlined),
+                      selectedIcon: Icon(Icons.home_rounded),
+                      label: Text('בית'),
+                    ),
+                    NavigationRailDestination(
+                      icon: badgeIcon(
+                        outlined: Icons.checklist_outlined,
+                        selected: Icons.checklist_rtl,
+                        isSelected: false,
+                      ),
+                      selectedIcon: badgeIcon(
+                        outlined: Icons.checklist_outlined,
+                        selected: Icons.checklist_rtl,
+                        isSelected: true,
+                      ),
+                      label: const Text('משימות'),
+                    ),
+                    const NavigationRailDestination(
+                      icon: Icon(Icons.loop_outlined),
+                      selectedIcon: Icon(Icons.loop),
+                      label: Text('הרגלים'),
+                    ),
+                    const NavigationRailDestination(
+                      icon: Icon(Icons.account_balance_wallet_outlined),
+                      selectedIcon: Icon(Icons.account_balance_wallet),
+                      label: Text('הוצאות'),
+                    ),
+                  ],
                 ),
-                const NavigationRailDestination(
-                  icon: Icon(Icons.account_balance_wallet_outlined),
-                  selectedIcon: Icon(Icons.account_balance_wallet),
-                  label: Text('הוצאות'),
+                const VerticalDivider(width: 1),
+                Expanded(
+                  child: IndexedStack(index: index, children: pages),
                 ),
               ],
             ),
-            const VerticalDivider(width: 1),
-            Expanded(
-              child: IndexedStack(index: index, children: pages),
+          )
+        : Scaffold(
+            body: IndexedStack(index: index, children: pages),
+            bottomNavigationBar: NavigationBar(
+              selectedIndex: index,
+              destinations: [
+                const NavigationDestination(
+                  icon: Icon(Icons.home_outlined),
+                  selectedIcon: Icon(Icons.home_rounded),
+                  label: 'בית',
+                ),
+                NavigationDestination(
+                  icon: badgeIcon(
+                    outlined: Icons.checklist_outlined,
+                    selected: Icons.checklist_rtl,
+                    isSelected: index == 1,
+                  ),
+                  label: 'משימות',
+                ),
+                const NavigationDestination(
+                  icon: Icon(Icons.loop_outlined),
+                  selectedIcon: Icon(Icons.loop),
+                  label: 'הרגלים',
+                ),
+                const NavigationDestination(
+                  icon: Icon(Icons.account_balance_wallet_outlined),
+                  selectedIcon: Icon(Icons.account_balance_wallet),
+                  label: 'הוצאות',
+                ),
+              ],
+              onDestinationSelected: (i) {
+                ref.read(appTabProvider.notifier).state = AppTab.values[i];
+              },
             ),
-          ],
-        ),
-      );
-    }
+          );
 
-    return Scaffold(
-      body: IndexedStack(index: index, children: pages),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: index,
-        destinations: [
-          const NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home_rounded),
-            label: 'בית',
-          ),
-          NavigationDestination(
-            icon: badgeIcon(
-              outlined: Icons.checklist_outlined,
-              selected: Icons.checklist_rtl,
-              isSelected: index == 1,
-            ),
-            label: 'משימות',
-          ),
-          const NavigationDestination(
-            icon: Icon(Icons.account_balance_wallet_outlined),
-            selectedIcon: Icon(Icons.account_balance_wallet),
-            label: 'הוצאות',
-          ),
-        ],
-        onDestinationSelected: (i) {
-          ref.read(appTabProvider.notifier).state = AppTab.values[i];
-        },
-      ),
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.keyK, control: true):
+            openCapture,
+        const SingleActivator(LogicalKeyboardKey.keyK, meta: true): openCapture,
+      },
+      child: Focus(autofocus: true, child: scaffold),
     );
   }
 }
