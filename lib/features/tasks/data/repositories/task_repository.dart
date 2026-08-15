@@ -21,7 +21,7 @@ class TaskRepository {
 
       final List<Map<String, dynamic>> rows = await query
           .order('priority', ascending: true)
-          .order('due_date', ascending: true);
+          .order('due_date', ascending: true, nullsFirst: false);
 
       return rows.map(TaskModel.fromJson).toList();
     } catch (error, stackTrace) {

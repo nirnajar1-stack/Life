@@ -1,13 +1,15 @@
 {
-    "name": "life_app",
-    "short_name": "life_app",
+    "name": "ניהול החיים",
+    "short_name": "החיים",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
-    "orientation": "portrait-primary",
+    "background_color": "#F4F7FB",
+    "theme_color": "#1D4ED8",
+    "description": "אפליקציה אישית לניהול משימות והוצאות",
+    "orientation": "any",
     "prefer_related_applications": false,
+    "dir": "rtl",
+    "lang": "he",
     "icons": [
         {
             "src": "icons/Icon-192.png",

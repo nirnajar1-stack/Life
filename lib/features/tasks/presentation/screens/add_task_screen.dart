@@ -4,6 +4,8 @@ import 'package:intl/intl.dart' hide TextDirection;
 
 import '../../data/models/task_model.dart';
 import '../../domain/providers/task_providers.dart';
+import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/adaptive_form.dart';
 
 final _dateFormat = DateFormat('dd/MM/yyyy');
 
@@ -132,69 +134,63 @@ class _AddTaskScreenState extends ConsumerState<AddTaskScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isWideScreen = MediaQuery.of(context).size.width > 600;
+    final inDialog = isFormDialog(context);
 
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
+        backgroundColor: inDialog ? Colors.white : AppColors.surface,
         appBar: AppBar(
+          backgroundColor: inDialog ? Colors.white : null,
           title: Text(widget.isEditing ? 'עריכת משימה' : 'משימה חדשה'),
-          centerTitle: true,
+          leading: IconButton(
+            tooltip: 'סגור',
+            icon: const Icon(Icons.close),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
         ),
         body: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: Container(
-              constraints: const BoxConstraints(maxWidth: 600),
-              decoration: isWideScreen
-                  ? BoxDecoration(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .surfaceContainerHighest
-                          .withValues(alpha: 0.3),
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(
-                        color: Theme.of(context).colorScheme.outlineVariant,
-                      ),
-                    )
-                  : null,
-              padding: isWideScreen ? const EdgeInsets.all(32) : EdgeInsets.zero,
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 560),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   TextField(
                     controller: _titleController,
+                    autofocus: !widget.isEditing,
+                    textInputAction: TextInputAction.next,
                     decoration: const InputDecoration(
                       labelText: 'מה המשימה?',
-                      border: OutlineInputBorder(),
                       prefixIcon: Icon(Icons.edit_calendar_outlined),
                     ),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
                   TextField(
                     controller: _descriptionController,
                     maxLines: 3,
                     decoration: const InputDecoration(
                       labelText: 'פרטים נוספים (אופציונלי)',
-                      border: OutlineInputBorder(),
                       prefixIcon: Icon(Icons.description_outlined),
                     ),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 22),
                   Text(
-                    'קטגוריית תחום חיים:',
+                    'קטגוריה',
                     style: Theme.of(context)
                         .textTheme
-                        .titleMedium
-                        ?.copyWith(fontWeight: FontWeight.bold),
+                        .titleSmall
+                        ?.copyWith(fontWeight: FontWeight.w800),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 10),
                   Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
+                    spacing: 8,
+                    runSpacing: 8,
                     children: _categories.map((cat) {
                       final selected = _selectedCategory == cat.name;
                       return ChoiceChip(
+                        showCheckmark: false,
                         label: Text(cat.name),
                         avatar: Icon(
                           cat.icon,
@@ -203,7 +199,8 @@ class _AddTaskScreenState extends ConsumerState<AddTaskScreen> {
                         selected: selected,
                         selectedColor: cat.color,
                         labelStyle: TextStyle(
-                          color: selected ? Colors.white : Colors.black87,
+                          color: selected ? Colors.white : AppColors.ink,
+                          fontWeight: FontWeight.w700,
                         ),
                         onSelected: (v) {
                           if (v) {
@@ -213,13 +210,13 @@ class _AddTaskScreenState extends ConsumerState<AddTaskScreen> {
                       );
                     }).toList(),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 22),
                   Text(
                     'עדיפות',
                     style: Theme.of(context)
                         .textTheme
-                        .titleMedium
-                        ?.copyWith(fontWeight: FontWeight.bold),
+                        .titleSmall
+                        ?.copyWith(fontWeight: FontWeight.w800),
                   ),
                   const SizedBox(height: 8),
                   SegmentedButton<int>(
@@ -232,7 +229,7 @@ class _AddTaskScreenState extends ConsumerState<AddTaskScreen> {
                     onSelectionChanged: (v) =>
                         setState(() => _priority = v.first),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
                   ListTile(
                     contentPadding: EdgeInsets.zero,
                     leading: const Icon(Icons.event_outlined),
@@ -257,21 +254,12 @@ class _AddTaskScreenState extends ConsumerState<AddTaskScreen> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 20),
                   SizedBox(
                     width: double.infinity,
                     height: 50,
-                    child: ElevatedButton(
+                    child: FilledButton(
                       onPressed: _isSaving ? null : _saveTask,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor:
-                            Theme.of(context).colorScheme.primary,
-                        foregroundColor:
-                            Theme.of(context).colorScheme.onPrimary,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
                       child: _isSaving
                           ? const SizedBox(
                               width: 22,
@@ -285,7 +273,7 @@ class _AddTaskScreenState extends ConsumerState<AddTaskScreen> {
                               widget.isEditing ? 'שמור שינויים' : 'שמור משימה',
                               style: const TextStyle(
                                 fontSize: 16,
-                                fontWeight: FontWeight.bold,
+                                fontWeight: FontWeight.w800,
                               ),
                             ),
                     ),

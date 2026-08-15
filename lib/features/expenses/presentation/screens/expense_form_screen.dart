@@ -3,7 +3,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 
+import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/adaptive_form.dart';
 import '../../data/models/expense_model.dart';
+import '../../domain/models/expense_category_taxonomy.dart';
 import '../../domain/models/expense_nature.dart';
 import '../../domain/providers/expense_providers.dart';
 
@@ -37,13 +40,13 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _itemNameController;
   late final TextEditingController _amountController;
-  late final TextEditingController _categoryController;
   late final TextEditingController _subCategoryController;
   late final TextEditingController _installmentsController;
 
   late DateTime _date;
   late ExpenseNature _nature;
   late bool _isShared;
+  late String _parentCategory;
   bool _isSaving = false;
 
   @override
@@ -53,7 +56,6 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
     _itemNameController = TextEditingController(text: e?.itemName ?? '');
     _amountController =
         TextEditingController(text: e == null ? '' : _trimAmount(e.amount));
-    _categoryController = TextEditingController(text: e?.category.trim() ?? '');
     _subCategoryController =
         TextEditingController(text: e?.subCategory.trim() ?? '');
     _installmentsController = TextEditingController(
@@ -65,6 +67,9 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
       installmentGroupId: e?.installmentGroupId,
     );
     _isShared = SharedExpenseFlag.isShared(e?.sharedExp);
+    _parentCategory = e == null
+        ? ExpenseCategoryTaxonomy.food
+        : ExpenseCategoryTaxonomy.resolveParent(e.category);
   }
 
   String _trimAmount(double amount) {
@@ -72,11 +77,22 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
     return amount.toString();
   }
 
+  String? _installmentSplitPreview() {
+    if (widget.isEditing || _nature != ExpenseNature.installment) return null;
+    final amount =
+        double.tryParse(_amountController.text.trim().replaceAll(',', '.'));
+    final count = int.tryParse(_installmentsController.text.trim());
+    if (amount == null || amount <= 0 || count == null || count < 2) {
+      return null;
+    }
+    final per = (amount / count);
+    return 'ייווצרו $count תשלומים · כ־${per.toStringAsFixed(2)} ₪ לחודש';
+  }
+
   @override
   void dispose() {
     _itemNameController.dispose();
     _amountController.dispose();
-    _categoryController.dispose();
     _subCategoryController.dispose();
     _installmentsController.dispose();
     super.dispose();
@@ -104,6 +120,9 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
             0;
     final repo = ref.read(expenseRepositoryProvider);
     final sharedValue = SharedExpenseFlag.toDb(_isShared);
+    final subCategory = _subCategoryController.text.trim().isEmpty
+        ? 'כללי'
+        : _subCategoryController.text.trim();
 
     try {
       if (widget.isEditing) {
@@ -112,8 +131,8 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
         final updated = existing.copyWith(
           itemName: _itemNameController.text.trim(),
           amount: amount,
-          category: _categoryController.text.trim(),
-          subCategory: _subCategoryController.text.trim(),
+          category: _parentCategory,
+          subCategory: subCategory,
           createdAt: _date,
           isFixed: _nature == ExpenseNature.fixed ? 1 : 0,
           sharedExp: sharedValue,
@@ -134,8 +153,8 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
           totalAmount: amount,
           installmentsCount: count,
           firstChargeDate: _date,
-          category: _categoryController.text.trim(),
-          subCategory: _subCategoryController.text.trim(),
+          category: _parentCategory,
+          subCategory: subCategory,
           isShared: _isShared,
         );
       } else {
@@ -144,8 +163,8 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
           createdAt: _date,
           itemName: _itemNameController.text.trim(),
           amount: amount,
-          category: _categoryController.text.trim(),
-          subCategory: _subCategoryController.text.trim(),
+          category: _parentCategory,
+          subCategory: subCategory,
           isFixed: _nature.isFixedDbValue,
           source: 'life_app',
           uuid: '',
@@ -188,32 +207,28 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isWide = MediaQuery.of(context).size.width > 600;
+    final inDialog = isFormDialog(context);
     final editingInstallment = widget.isEditing && widget.expense!.isInstallment;
 
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
+        backgroundColor: inDialog ? Colors.white : AppColors.surface,
         appBar: AppBar(
+          backgroundColor: inDialog ? Colors.white : null,
           title: Text(widget.isEditing ? 'עריכת הוצאה' : 'הוצאה חדשה'),
+          leading: IconButton(
+            tooltip: 'סגור',
+            icon: const Icon(Icons.close),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
         ),
         body: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 600),
-              child: Container(
-                padding: isWide ? const EdgeInsets.all(28) : EdgeInsets.zero,
-                decoration: isWide
-                    ? BoxDecoration(
-                        color: Theme.of(context)
-                            .colorScheme
-                            .surfaceContainerHighest
-                            .withValues(alpha: 0.3),
-                        borderRadius: BorderRadius.circular(20),
-                      )
-                    : null,
-                child: Form(
+              constraints: const BoxConstraints(maxWidth: 560),
+              child: Form(
                   key: _formKey,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -235,6 +250,8 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                       ],
                       TextFormField(
                         controller: _itemNameController,
+                        autofocus: !widget.isEditing,
+                        textInputAction: TextInputAction.next,
                         decoration: const InputDecoration(
                           labelText: 'שם הפריט',
                           border: OutlineInputBorder(),
@@ -270,30 +287,41 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                           }
                           return null;
                         },
+                        onChanged: (_) => setState(() {}),
                       ),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _categoryController,
-                        decoration: const InputDecoration(
-                          labelText: 'קטגוריה',
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.category_outlined),
-                        ),
-                        validator: (v) => (v == null || v.trim().isEmpty)
-                            ? 'נא להזין קטגוריה'
-                            : null,
+                      const SizedBox(height: 20),
+                      Text(
+                        'קטגוריה',
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          for (final parent
+                              in ExpenseCategoryTaxonomy.allParents)
+                              ChoiceChip(
+                                showCheckmark: false,
+                                label: Text(parent),
+                              selected: _parentCategory == parent,
+                              onSelected: (_) {
+                                setState(() => _parentCategory = parent);
+                              },
+                            ),
+                        ],
                       ),
                       const SizedBox(height: 16),
                       TextFormField(
                         controller: _subCategoryController,
                         decoration: const InputDecoration(
-                          labelText: 'תת-קטגוריה',
+                          labelText: 'פירוט (אופציונלי)',
+                          hintText: 'למשל סופר / בנזין / נטפליקס',
                           border: OutlineInputBorder(),
                           prefixIcon: Icon(Icons.label_outline),
                         ),
-                        validator: (v) => (v == null || v.trim().isEmpty)
-                            ? 'נא להזין תת-קטגוריה'
-                            : null,
                       ),
                       const SizedBox(height: 16),
                       InkWell(
@@ -360,14 +388,15 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                             }
                             return null;
                           },
+                          onChanged: (_) => setState(() {}),
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'ייווצרו N שורות — אחת לכל חודש, מהתאריך שבחרת. '
-                          'הסכום הכולל יחולק שווה בין התשלומים.',
-                          style: TextStyle(
+                          _installmentSplitPreview() ??
+                              'ייווצרו N שורות — אחת לכל חודש, מהתאריך שבחרת.',
+                          style: const TextStyle(
                             fontSize: 12,
-                            color: Colors.grey.shade600,
+                            color: AppColors.muted,
                           ),
                         ),
                       ],
@@ -416,7 +445,6 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
             ),
           ),
         ),
-      ),
-    );
+      );
   }
 }

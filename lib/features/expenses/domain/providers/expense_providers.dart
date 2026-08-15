@@ -30,7 +30,10 @@ final expensesRawProvider = FutureProvider<List<ExpenseModel>>((ref) async {
 
 /// Selected analysis window for dashboard + ledger.
 final expensePeriodProvider =
-    StateProvider<ExpensePeriod>((ref) => ExpensePeriod.last3Months);
+    StateProvider<ExpensePeriod>((ref) => ExpensePeriod.thisMonth);
+
+/// Client-side search over the ledger (item name / category).
+final expenseSearchQueryProvider = StateProvider<String>((ref) => '');
 
 /// Expenses filtered by the selected [expensePeriodProvider].
 final filteredExpensesProvider = Provider<AsyncValue<List<ExpenseModel>>>((ref) {

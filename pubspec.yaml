@@ -25,7 +25,13 @@ dependencies:
   home_widget: ^0.7.0
 
   # Utilities for Expenses & Health (Dates, formatting)
-  intl: ^0.19.0
+  intl: ^0.20.2
+
+  # Hebrew web typography
+  google_fonts: ^6.2.1
+
+  flutter_localizations:
+    sdk: flutter
 
 dev_dependencies:
   flutter_test:

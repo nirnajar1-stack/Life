@@ -51,6 +51,19 @@ class ExpenseTransaction {
     return 'קנייה · $primaryCategory';
   }
 
+  bool matchesQuery(String query) {
+    final q = query.trim().toLowerCase();
+    if (q.isEmpty) return true;
+    if (title.toLowerCase().contains(q)) return true;
+    if (primaryCategory.toLowerCase().contains(q)) return true;
+    return items.any((item) {
+      return item.itemName.toLowerCase().contains(q) ||
+          item.normalizedCategory.toLowerCase().contains(q) ||
+          item.subCategory.toLowerCase().contains(q) ||
+          (item.installmentLabel?.toLowerCase().contains(q) ?? false);
+    });
+  }
+
   /// Short preview of line items for the collapsed subtitle.
   String get itemsPreview {
     if (!isGrouped) {

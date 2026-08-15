@@ -47,21 +47,23 @@ class ExpensesDashboardView extends ConsumerWidget {
 
     if (dashboard.totalItems == 0) {
       return ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 96),
         children: [
           _PeriodFilter(
             selected: period,
             onChanged: (p) =>
                 ref.read(expensePeriodProvider.notifier).state = p,
           ),
-          const SizedBox(height: 48),
-          const Center(child: Text('אין נתונים לתקופה שנבחרה.')),
+          const SizedBox(height: 32),
+          const Center(
+            child: Text('אין נתונים לתקופה שנבחרה.'),
+          ),
         ],
       );
     }
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 96),
       children: [
         _PeriodFilter(
           selected: period,
@@ -71,21 +73,62 @@ class ExpensesDashboardView extends ConsumerWidget {
         const SizedBox(height: 14),
         _KpiStrip(dashboard: dashboard),
         const SizedBox(height: 20),
-        _SectionTitle(
-          'השוואת חודשים · ${dashboard.currentMonthLabel} מול ${dashboard.previousMonthLabel}',
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final compare = _MonthCompareCard(
+              comparison: dashboard.monthComparison,
+              currentLabel: dashboard.currentMonthLabel,
+              previousLabel: dashboard.previousMonthLabel,
+              currentTotal: dashboard.thisMonthTotal,
+              previousTotal: dashboard.previousMonthTotal,
+            );
+            final trend = _MonthlyTrendCard(months: dashboard.monthlyTrend);
+            if (constraints.maxWidth < 820) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _SectionTitle(
+                    'השוואת חודשים · ${dashboard.currentMonthLabel} מול ${dashboard.previousMonthLabel}',
+                  ),
+                  const SizedBox(height: 8),
+                  compare,
+                  const SizedBox(height: 20),
+                  const _SectionTitle('מגמת הוצאות חודשית'),
+                  const SizedBox(height: 8),
+                  trend,
+                ],
+              );
+            }
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _SectionTitle(
+                        'השוואת חודשים · ${dashboard.currentMonthLabel} מול ${dashboard.previousMonthLabel}',
+                      ),
+                      const SizedBox(height: 8),
+                      compare,
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const _SectionTitle('מגמת הוצאות חודשית'),
+                      const SizedBox(height: 8),
+                      trend,
+                    ],
+                  ),
+                ),
+              ],
+            );
+          },
         ),
-        const SizedBox(height: 8),
-        _MonthCompareCard(
-          comparison: dashboard.monthComparison,
-          currentLabel: dashboard.currentMonthLabel,
-          previousLabel: dashboard.previousMonthLabel,
-          currentTotal: dashboard.thisMonthTotal,
-          previousTotal: dashboard.previousMonthTotal,
-        ),
-        const SizedBox(height: 20),
-        _SectionTitle('מגמת הוצאות חודשית'),
-        const SizedBox(height: 8),
-        _MonthlyTrendCard(months: dashboard.monthlyTrend),
         const SizedBox(height: 20),
         _SectionTitle('חתך לפי קטגוריית־אב'),
         const SizedBox(height: 8),
@@ -154,6 +197,7 @@ class _PeriodFilter extends StatelessWidget {
       children: [
         for (final period in ExpensePeriod.values)
           ChoiceChip(
+            showCheckmark: false,
             label: Text(period.label),
             selected: selected == period,
             onSelected: (_) => onChanged(period),
@@ -194,6 +238,33 @@ class _KpiStrip extends StatelessWidget {
         ? Colors.grey
         : (mom <= 0 ? Colors.green.shade700 : Colors.red.shade700);
 
+    final isWide = MediaQuery.sizeOf(context).width >= 900;
+    final cards = [
+      _KpiCard(
+        label: 'החודש',
+        value: _currency.format(dashboard.thisMonthTotal),
+        subtitle: momLabel,
+        subtitleColor: momColor,
+        color: Theme.of(context).colorScheme.primaryContainer,
+      ),
+      _KpiCard(
+        label: 'חודש קודם',
+        value: _currency.format(dashboard.previousMonthTotal),
+        color: Theme.of(context).colorScheme.secondaryContainer,
+      ),
+      _KpiCard(
+        label: 'ממוצע חודשי',
+        value: _currency.format(dashboard.averageMonthTotal),
+        color: Theme.of(context).colorScheme.tertiaryContainer,
+      ),
+      _KpiCard(
+        label: 'סה״כ בתקופה',
+        value: _currency.format(dashboard.grandTotal),
+        subtitle: '${dashboard.totalItems} פריטים',
+        color: Colors.blueGrey.shade100,
+      ),
+    ];
+
     return Column(
       children: [
         Align(
@@ -206,48 +277,32 @@ class _KpiStrip extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: _KpiCard(
-                label: 'החודש',
-                value: _currency.format(dashboard.thisMonthTotal),
-                subtitle: momLabel,
-                subtitleColor: momColor,
-                color: Theme.of(context).colorScheme.primaryContainer,
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _KpiCard(
-                label: 'חודש קודם',
-                value: _currency.format(dashboard.previousMonthTotal),
-                color: Theme.of(context).colorScheme.secondaryContainer,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        Row(
-          children: [
-            Expanded(
-              child: _KpiCard(
-                label: 'ממוצע חודשי',
-                value: _currency.format(dashboard.averageMonthTotal),
-                color: Theme.of(context).colorScheme.tertiaryContainer,
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _KpiCard(
-                label: 'סה״כ בתקופה',
-                value: _currency.format(dashboard.grandTotal),
-                subtitle: '${dashboard.totalItems} פריטים',
-                color: Colors.blueGrey.shade100,
-              ),
-            ),
-          ],
-        ),
+        if (isWide)
+          Row(
+            children: [
+              for (var i = 0; i < cards.length; i++) ...[
+                if (i > 0) const SizedBox(width: 10),
+                Expanded(child: cards[i]),
+              ],
+            ],
+          )
+        else ...[
+          Row(
+            children: [
+              Expanded(child: cards[0]),
+              const SizedBox(width: 10),
+              Expanded(child: cards[1]),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(child: cards[2]),
+              const SizedBox(width: 10),
+              Expanded(child: cards[3]),
+            ],
+          ),
+        ],
       ],
     );
   }
@@ -327,8 +382,6 @@ class _MonthCompareCard extends StatelessWidget {
         delta <= 0 ? Colors.green.shade700 : Colors.red.shade700;
 
     return Card(
-      elevation: 0.5,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Column(
@@ -488,8 +541,6 @@ class _MonthlyTrendCard extends StatelessWidget {
     final safeMax = maxTotal <= 0 ? 1.0 : maxTotal;
 
     return Card(
-      elevation: 0.5,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(12, 16, 12, 12),
         child: Column(
@@ -581,8 +632,6 @@ class _ShareBars extends StatelessWidget {
     if (items.isEmpty) return const Text('אין נתונים');
 
     return Card(
-      elevation: 0.5,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Column(
@@ -647,8 +696,6 @@ class _NatureSplitCard extends StatelessWidget {
         total <= 0 ? 0.0 : dashboard.installmentTotal / total;
 
     return Card(
-      elevation: 0.5,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Column(
@@ -791,8 +838,6 @@ class _TopTransactionsCard extends StatelessWidget {
     if (transactions.isEmpty) return const Text('אין נתונים');
 
     return Card(
-      elevation: 0.5,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Column(
         children: [
           for (var i = 0; i < transactions.length; i++) ...[
@@ -844,8 +889,6 @@ class _TopItemsCard extends StatelessWidget {
     if (items.isEmpty) return const Text('אין נתונים');
 
     return Card(
-      elevation: 0.5,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Column(
         children: [
           for (var i = 0; i < items.length; i++) ...[

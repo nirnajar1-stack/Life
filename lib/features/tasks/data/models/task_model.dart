@@ -8,6 +8,35 @@ class TaskModel {
   final DateTime? dueDate;
   final DateTime createdAt;
 
+  DateTime? get _dueDay {
+    if (dueDate == null) return null;
+    return DateTime(dueDate!.year, dueDate!.month, dueDate!.day);
+  }
+
+  DateTime get _today {
+    final now = DateTime.now();
+    return DateTime(now.year, now.month, now.day);
+  }
+
+  bool get isOverdue {
+    if (isCompleted) return false;
+    final due = _dueDay;
+    return due != null && due.isBefore(_today);
+  }
+
+  bool get isDueToday {
+    if (isCompleted) return false;
+    final due = _dueDay;
+    return due != null && due == _today;
+  }
+
+  bool get isDueThisWeek {
+    if (isCompleted || isOverdue || isDueToday) return false;
+    final due = _dueDay;
+    if (due == null) return false;
+    return !due.isAfter(_today.add(const Duration(days: 7)));
+  }
+
   const TaskModel({
     required this.id,
     required this.title,

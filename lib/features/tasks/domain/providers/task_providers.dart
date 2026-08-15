@@ -12,6 +12,9 @@ final taskRepositoryProvider = Provider<TaskRepository>((ref) {
 /// Currently selected category filter (null = all active tasks).
 final taskCategoryFilterProvider = StateProvider<String?>((ref) => null);
 
+/// Client-side search over the active task list.
+final taskSearchQueryProvider = StateProvider<String>((ref) => '');
+
 /// Async list of active (not completed) tasks, honoring the category filter.
 final activeTasksProvider = FutureProvider<List<TaskModel>>((ref) async {
   final repository = ref.watch(taskRepositoryProvider);
