@@ -16,7 +16,11 @@ if [[ ! -x "$FLUTTER_ROOT/bin/flutter" ]]; then
     https://github.com/flutter/flutter.git "$FLUTTER_ROOT"
 fi
 
-flutter config --no-analytics >/dev/null
-flutter precache --web
+if [[ ! -f "$ROOT/lib/main.dart" ]]; then
+  echo "lib/main.dart is missing. Check .vercelignore is not excluding lib/" >&2
+  exit 1
+fi
+
+flutter config --no-analytics --enable-web >/dev/null
 flutter pub get
 flutter build web --release --no-tree-shake-icons --no-wasm-dry-run
