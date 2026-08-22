@@ -36,6 +36,7 @@ class _RecurringExpenseFormScreenState
   late String _parentCategory;
   late bool _isShared;
   late int _sharedSplit;
+  late bool _amountVariable;
   bool _saving = false;
 
   @override
@@ -44,10 +45,10 @@ class _RecurringExpenseFormScreenState
     final t = widget.template;
     _title = TextEditingController(text: t?.title ?? '');
     _amount = TextEditingController(
-      text: t == null
+      text: t?.amount == null
           ? ''
-          : (t.amount == t.amount.roundToDouble()
-              ? t.amount.toInt().toString()
+          : (t!.amount == t.amount!.roundToDouble()
+              ? t.amount!.toInt().toString()
               : t.amount.toString()),
     );
     _subCategory = TextEditingController(text: t?.subCategory ?? '');
@@ -55,6 +56,7 @@ class _RecurringExpenseFormScreenState
     _startDate = t?.startDate ?? DateTime.now();
     _parentCategory = t?.category ?? ExpenseCategoryTaxonomy.housing;
     _isShared = t?.isShared ?? false;
+    _amountVariable = t?.amountVariable ?? false;
     _sharedSplit =
         SharedExpenseFlag.splitCount(t?.sharedExp) ?? SharedExpenseFlag.defaultSplit;
   }
@@ -82,8 +84,13 @@ class _RecurringExpenseFormScreenState
     if (!(_formKey.currentState?.validate() ?? false)) return;
     setState(() => _saving = true);
 
-    final amount =
-        double.tryParse(_amount.text.trim().replaceAll(',', '.')) ?? 0;
+    final parsedAmount =
+        double.tryParse(_amount.text.trim().replaceAll(',', '.'));
+    final amount = _amountVariable ? null : parsedAmount;
+    if (!_amountVariable && (amount == null || amount <= 0)) {
+      setState(() => _saving = false);
+      return;
+    }
     final day = int.parse(_dayOfMonth.text.trim());
     final sharedValue = SharedExpenseFlag.toDb(
       shared: _isShared,
@@ -107,12 +114,14 @@ class _RecurringExpenseFormScreenState
         .copyWith(
       title: _title.text.trim(),
       amount: amount,
+      clearAmount: _amountVariable && (parsedAmount == null || parsedAmount <= 0),
       category: _parentCategory,
       subCategory: _subCategory.text.trim().isEmpty
           ? 'כללי'
           : _subCategory.text.trim(),
       dayOfMonth: day,
       sharedExp: sharedValue,
+      amountVariable: _amountVariable,
       startDate: _startDate,
     );
 
@@ -168,28 +177,47 @@ class _RecurringExpenseFormScreenState
                     validator: (v) =>
                         (v == null || v.trim().isEmpty) ? 'נא להזין שם' : null,
                   ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _amount,
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
-                    inputFormatters: [
-                      FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
-                    ],
-                    decoration: const InputDecoration(
-                      labelText: 'סכום חודשי',
-                      suffixText: '₪',
-                      border: OutlineInputBorder(),
+                  const SizedBox(height: 12),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('סכום משתנה'),
+                    subtitle: const Text(
+                      'לחשמל, מים, ארנונה — מזינים את הסכום בסוף כל חודש',
                     ),
-                    validator: (v) {
-                      final parsed =
-                          double.tryParse((v ?? '').replaceAll(',', '.'));
-                      if (parsed == null || parsed <= 0) {
-                        return 'נא להזין סכום תקין';
-                      }
-                      return null;
-                    },
+                    value: _amountVariable,
+                    onChanged: (v) => setState(() => _amountVariable = v),
                   ),
+                  if (!_amountVariable) ...[
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _amount,
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: true),
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
+                      ],
+                      decoration: const InputDecoration(
+                        labelText: 'סכום חודשי',
+                        suffixText: '₪',
+                        border: OutlineInputBorder(),
+                      ),
+                      validator: (v) {
+                        if (_amountVariable) return null;
+                        final parsed =
+                            double.tryParse((v ?? '').replaceAll(',', '.'));
+                        if (parsed == null || parsed <= 0) {
+                          return 'נא להזין סכום תקין';
+                        }
+                        return null;
+                      },
+                    ),
+                  ] else ...[
+                    const SizedBox(height: 8),
+                    const Text(
+                      'לא ייווצר חיוב אוטומטי — תקבל תזכורת להזין סכום בטאב קבועות.',
+                      style: TextStyle(color: AppColors.muted, fontSize: 12),
+                    ),
+                  ],
                   const SizedBox(height: 16),
                   TextFormField(
                     controller: _dayOfMonth,
