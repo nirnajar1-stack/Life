@@ -12,9 +12,15 @@ import '../../domain/models/expense_ledger.dart';
 import '../../domain/models/expense_nature.dart';
 import '../../domain/models/expense_period.dart';
 import '../../domain/providers/expense_providers.dart';
+import '../../domain/providers/installment_plan_providers.dart';
+import '../../domain/providers/recurring_expense_providers.dart';
 import '../widgets/expenses_dashboard_view.dart';
+import '../widgets/installment_plans_tab.dart';
+import '../widgets/recurring_expenses_tab.dart';
 import '../widgets/shared_split_controls.dart';
 import 'expense_form_screen.dart';
+import 'installment_plan_form_screen.dart';
+import 'recurring_expense_form_screen.dart';
 
 final _currency =
     NumberFormat.currency(locale: 'he_IL', symbol: '₪', decimalDigits: 0);
@@ -41,15 +47,27 @@ const List<String> _hebrewMonths = [
 ];
 
 /// Expenses module — analytics dashboard + monthly ledger with drill-down.
-class ExpensesScreen extends ConsumerWidget {
+class ExpensesScreen extends ConsumerStatefulWidget {
   const ExpensesScreen({super.key});
 
-  Future<void> _refresh(WidgetRef ref) async {
-    ref.invalidate(expensesRawProvider);
-    ref.invalidate(expensesSummaryProvider);
+  @override
+  ConsumerState<ExpensesScreen> createState() => _ExpensesScreenState();
+}
+
+class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _refresh();
+    });
+  }
+
+  Future<void> _refresh() async {
+    await refreshRecurringAndExpenses(ref);
+    ref.invalidate(installmentPlansProvider);
     ref.invalidate(expenseLedgerProvider);
     ref.invalidate(expenseDashboardProvider);
-    ref.invalidate(recentExpensesProvider);
   }
 
   Future<void> _openForm(BuildContext context, WidgetRef ref,
@@ -61,7 +79,7 @@ class ExpensesScreen extends ConsumerWidget {
         messageGroupSize: messageGroupSize,
       ),
     );
-    await _refresh(ref);
+    await _refresh();
   }
 
   Future<void> _toggleSharedForMessage(
@@ -78,7 +96,7 @@ class ExpensesScreen extends ConsumerWidget {
               messageId: mid,
               sharedExp: 0,
             );
-        await _refresh(ref);
+        await _refresh();
         if (!context.mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -106,7 +124,7 @@ class ExpensesScreen extends ConsumerWidget {
             messageId: mid,
             sharedExp: split,
           );
-      await _refresh(ref);
+      await _refresh();
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -149,7 +167,7 @@ class ExpensesScreen extends ConsumerWidget {
           tx.items.first.copyWith(sharedExp: split),
         );
       }
-      await _refresh(ref);
+      await _refresh();
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('החלוקה עודכנה ל-$split')),
@@ -175,7 +193,7 @@ class ExpensesScreen extends ConsumerWidget {
       } else {
         await repo.updateExpense(tx.items.first.copyWith(sharedExp: 0));
       }
-      await _refresh(ref);
+      await _refresh();
     } catch (error) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -246,7 +264,7 @@ class ExpensesScreen extends ConsumerWidget {
       } else {
         await repo.deleteExpense(tx.items.first.id);
       }
-      await _refresh(ref);
+      await _refresh();
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -293,7 +311,7 @@ class ExpensesScreen extends ConsumerWidget {
 
     try {
       await ref.read(expenseRepositoryProvider).deleteExpense(expense.id);
-      await _refresh(ref);
+      await _refresh();
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('נמחק: ${expense.itemName}')),
@@ -307,37 +325,49 @@ class ExpensesScreen extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final dashboardAsync = ref.watch(expenseDashboardProvider);
     final ledgerAsync = ref.watch(expenseLedgerProvider);
 
     return Directionality(
       textDirection: TextDirection.rtl,
       child: DefaultTabController(
-        length: 2,
+        length: 4,
         child: Scaffold(
           appBar: AppBar(
             title: const Text('הוצאות'),
             automaticallyImplyLeading: false,
             bottom: const TabBar(
+              isScrollable: true,
               tabs: [
                 Tab(text: 'פנקס'),
+                Tab(text: 'קבועות'),
+                Tab(text: 'תשלומים'),
                 Tab(text: 'ניתוח'),
               ],
             ),
           ),
-          floatingActionButton: FloatingActionButton.extended(
-            onPressed: () => _openForm(context, ref),
-            backgroundColor: AppColors.expenses,
-            icon: const Icon(Icons.add),
-            label: const Text('הוצאה'),
+          floatingActionButton: _ExpensesFab(
+            onAddExpense: () => _openForm(context, ref),
+            onAddRecurring: () {
+              showAdaptiveForm(
+                context: context,
+                form: const RecurringExpenseFormScreen(),
+              ).then((_) => ref.invalidate(recurringExpensesProvider));
+            },
+            onAddInstallment: () {
+              showAdaptiveForm(
+                context: context,
+                form: const InstallmentPlanFormScreen(),
+              ).then((_) => refreshInstallmentPlansAndExpenses(ref));
+            },
           ),
           body: AppLayout.constrain(
             context: context,
             child: TabBarView(
                 children: [
                   RefreshIndicator(
-                    onRefresh: () => _refresh(ref),
+                    onRefresh: () => _refresh(),
                     child: ledgerAsync.when(
                       loading: () =>
                           const Center(child: CircularProgressIndicator()),
@@ -346,7 +376,7 @@ class ExpensesScreen extends ConsumerWidget {
                           AppErrorState(
                             title: 'שגיאה בטעינת ההוצאות',
                             error: e,
-                            onRetry: () => _refresh(ref),
+                            onRetry: () => _refresh(),
                           ),
                         ],
                       ),
@@ -424,8 +454,10 @@ class ExpensesScreen extends ConsumerWidget {
                       },
                     ),
                   ),
+                  RecurringExpensesTab(onRefresh: () => _refresh()),
+                  InstallmentPlansTab(onRefresh: () => _refresh()),
                   RefreshIndicator(
-                    onRefresh: () => _refresh(ref),
+                    onRefresh: () => _refresh(),
                     child: dashboardAsync.when(
                       loading: () =>
                           const Center(child: CircularProgressIndicator()),
@@ -434,7 +466,7 @@ class ExpensesScreen extends ConsumerWidget {
                           AppErrorState(
                             title: 'שגיאה בטעינת ההוצאות',
                             error: e,
-                            onRetry: () => _refresh(ref),
+                            onRetry: () => _refresh(),
                           ),
                         ],
                       ),
@@ -447,6 +479,71 @@ class ExpensesScreen extends ConsumerWidget {
             ),
         ),
       ),
+    );
+  }
+}
+
+class _ExpensesFab extends StatefulWidget {
+  const _ExpensesFab({
+    required this.onAddExpense,
+    required this.onAddRecurring,
+    required this.onAddInstallment,
+  });
+
+  final VoidCallback onAddExpense;
+  final VoidCallback onAddRecurring;
+  final VoidCallback onAddInstallment;
+
+  @override
+  State<_ExpensesFab> createState() => _ExpensesFabState();
+}
+
+class _ExpensesFabState extends State<_ExpensesFab> {
+  TabController? _tabController;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final controller = DefaultTabController.maybeOf(context);
+    if (_tabController != controller) {
+      _tabController?.removeListener(_onTabChanged);
+      _tabController = controller;
+      _tabController?.addListener(_onTabChanged);
+    }
+  }
+
+  @override
+  void dispose() {
+    _tabController?.removeListener(_onTabChanged);
+    super.dispose();
+  }
+
+  void _onTabChanged() {
+    if (_tabController?.indexIsChanging ?? true) return;
+    setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tab = _tabController?.index ?? 0;
+    final VoidCallback onPressed;
+    final String label;
+    switch (tab) {
+      case 1:
+        onPressed = widget.onAddRecurring;
+        label = 'קבועה';
+      case 2:
+        onPressed = widget.onAddInstallment;
+        label = 'תוכנית';
+      default:
+        onPressed = widget.onAddExpense;
+        label = 'הוצאה';
+    }
+    return FloatingActionButton.extended(
+      onPressed: onPressed,
+      backgroundColor: AppColors.expenses,
+      icon: const Icon(Icons.add),
+      label: Text(label),
     );
   }
 }

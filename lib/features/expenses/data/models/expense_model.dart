@@ -21,6 +21,7 @@ class ExpenseModel {
   final int? installmentNumber;
   final int? installmentsTotal;
   final DateTime? purchaseDate;
+  final String? recurringExpenseId;
 
   const ExpenseModel({
     required this.id,
@@ -39,6 +40,7 @@ class ExpenseModel {
     this.installmentNumber,
     this.installmentsTotal,
     this.purchaseDate,
+    this.recurringExpenseId,
   });
 
   /// Category with surrounding whitespace removed (raw data is inconsistent).
@@ -80,6 +82,7 @@ class ExpenseModel {
       installmentNumber: _parseInt(json['installment_number']),
       installmentsTotal: _parseInt(json['installments_total']),
       purchaseDate: _parseDate(json['purchase_date']),
+      recurringExpenseId: json['recurring_expense_id'] as String?,
     );
   }
 

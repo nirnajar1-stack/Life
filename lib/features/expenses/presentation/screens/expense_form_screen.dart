@@ -9,6 +9,7 @@ import '../../data/models/expense_model.dart';
 import '../../domain/models/expense_category_taxonomy.dart';
 import '../../domain/models/expense_nature.dart';
 import '../../domain/providers/expense_providers.dart';
+import '../../domain/providers/installment_plan_providers.dart';
 import '../widgets/shared_split_controls.dart';
 
 final _dateFormat = DateFormat('dd/MM/yyyy');
@@ -155,15 +156,15 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
         }
       } else if (_nature == ExpenseNature.installment) {
         final count = int.parse(_installmentsController.text.trim());
-        await repo.createInstallmentPlan(
-          itemName: _itemNameController.text.trim(),
-          totalAmount: amount,
-          installmentsCount: count,
-          firstChargeDate: _date,
-          category: _parentCategory,
-          subCategory: subCategory,
-          sharedSplit: sharedValue,
-        );
+        await ref.read(installmentPlanRepositoryProvider).createPlan(
+              title: _itemNameController.text.trim(),
+              totalAmount: amount,
+              installmentsCount: count,
+              firstChargeDate: _date,
+              category: _parentCategory,
+              subCategory: subCategory,
+              sharedExp: sharedValue,
+            );
       } else {
         final created = ExpenseModel(
           id: 0,
@@ -184,6 +185,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
       ref.invalidate(expensesRawProvider);
       ref.invalidate(expensesSummaryProvider);
       ref.invalidate(recentExpensesProvider);
+      ref.invalidate(installmentPlansProvider);
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -390,8 +392,8 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                           ),
                           validator: (v) {
                             final n = int.tryParse((v ?? '').trim());
-                            if (n == null || n < 2 || n > 60) {
-                              return 'נא להזין מספר בין 2 ל-60';
+                            if (n == null || n < 2 || n > 360) {
+                              return 'נא להזין מספר בין 2 ל-360';
                             }
                             return null;
                           },
