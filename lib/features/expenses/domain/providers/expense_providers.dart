@@ -49,6 +49,19 @@ final expenseLedgerProvider =
   return ref.watch(filteredExpensesProvider).whenData(buildExpenseLedger);
 });
 
+/// Personal spend total for the current calendar month (home + cashflow banner).
+final monthExpenseTotalProvider = Provider<AsyncValue<double>>((ref) {
+  final now = DateTime.now();
+  final start = DateTime(now.year, now.month);
+  final end = DateTime(now.year, now.month + 1);
+  return ref.watch(expensesRawProvider).whenData(
+        (expenses) => expenses
+            .where((e) =>
+                !e.createdAt.isBefore(start) && e.createdAt.isBefore(end))
+            .fold<double>(0, (sum, e) => sum + e.actualAmount),
+      );
+});
+
 /// Analytics dashboard slices for the selected period.
 final expenseDashboardProvider = Provider<AsyncValue<ExpenseDashboard>>((ref) {
   final period = ref.watch(expensePeriodProvider);

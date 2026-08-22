@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../features/expenses/presentation/screens/expenses_screen.dart';
+import '../money/money_hub_screen.dart';
 import '../../features/tasks/presentation/screens/tasks_list_screen.dart';
 import 'app_module.dart';
 
@@ -19,8 +19,8 @@ const List<AppModule> appModules = [
   ),
   AppModule(
     id: 'expenses',
-    title: 'הוצאות',
-    subtitle: 'מעקב תקציב וקניות',
+    title: 'כסף',
+    subtitle: 'הוצאות, הכנסות ותזרים',
     icon: Icons.account_balance_wallet_outlined,
     color: Color(0xFF2E7D32),
     builder: _buildExpenses,
@@ -29,4 +29,4 @@ const List<AppModule> appModules = [
 
 Widget _buildTasks(BuildContext context) => const TasksListScreen();
 
-Widget _buildExpenses(BuildContext context) => const ExpensesScreen();
+Widget _buildExpenses(BuildContext context) => const MoneyHubScreen();

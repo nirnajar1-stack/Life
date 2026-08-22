@@ -8,6 +8,7 @@ class AppColors {
   static const Color primary = Color(0xFF1D4ED8);
   static const Color tasks = Color(0xFF1D4ED8);
   static const Color expenses = Color(0xFF059669);
+  static const Color income = Color(0xFF0284C7);
   static const Color surface = Color(0xFFF3F5F9);
   static const Color card = Color(0xFFFFFFFF);
   static const Color ink = Color(0xFF0F172A);

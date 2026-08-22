@@ -2,6 +2,7 @@ import 'package:intl/intl.dart';
 
 import '../../features/expenses/data/models/expense_model.dart';
 import '../../features/expenses/domain/models/expense_category_taxonomy.dart';
+import '../../features/income/data/models/income_model.dart';
 import '../../features/habits/data/models/habit_models.dart';
 import '../../features/habits/domain/habit_engine.dart';
 import '../../features/tasks/data/models/task_model.dart';
@@ -21,6 +22,7 @@ class HomeDigest {
     required this.topCategory,
     required this.topCategoryAmount,
     required this.recent,
+    this.monthIncome = 0,
     this.habitsDueToday = 0,
     this.habitsDoneToday = 0,
   });
@@ -35,8 +37,11 @@ class HomeDigest {
   final String? topCategory;
   final double? topCategoryAmount;
   final List<ExpenseModel> recent;
+  final double monthIncome;
   final int habitsDueToday;
   final int habitsDoneToday;
+
+  double get monthNet => monthIncome - monthTotal;
 
   int get habitsPendingToday {
     final pending = habitsDueToday - habitsDoneToday;
@@ -89,6 +94,7 @@ class HomeDigest {
   static HomeDigest from({
     required List<TaskModel> tasks,
     required List<ExpenseModel> expenses,
+    List<IncomeModel> incomes = const [],
     List<HabitSnapshot> habits = const [],
     DateTime? now,
   }) {
@@ -107,6 +113,8 @@ class HomeDigest {
           (a.dueDate ?? a.createdAt).compareTo(b.dueDate ?? a.createdAt));
 
     final thisMonth = expenses.where((e) => !e.createdAt.isBefore(monthStart));
+    final thisMonthIncomes =
+        incomes.where((i) => !i.createdAt.isBefore(monthStart));
     final previousMonth = expenses.where(
       (e) =>
           !e.createdAt.isBefore(previousStart) && e.createdAt.isBefore(monthStart),
@@ -144,6 +152,8 @@ class HomeDigest {
       thisWeek: thisWeek,
       openCount: tasks.length,
       monthTotal: thisMonth.fold<double>(0, (sum, e) => sum + e.actualAmount),
+      monthIncome:
+          thisMonthIncomes.fold<double>(0, (sum, i) => sum + i.amount),
       previousMonthTotal:
           previousMonth.fold<double>(0, (sum, e) => sum + e.actualAmount),
       todaySpend: todayItems.fold<double>(0, (sum, e) => sum + e.actualAmount),

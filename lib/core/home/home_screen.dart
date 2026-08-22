@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 
 import '../../features/expenses/domain/providers/expense_providers.dart';
+import '../../features/income/domain/providers/income_providers.dart';
 import '../../features/expenses/presentation/screens/expense_form_screen.dart';
 import '../../features/habits/data/models/habit_models.dart';
 import '../../features/habits/domain/habit_engine.dart';
@@ -99,15 +100,19 @@ class HomeScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final tasksAsync = ref.watch(activeTasksProvider);
     final expensesAsync = ref.watch(expensesRawProvider);
+    final incomesAsync = ref.watch(incomesRawProvider);
     final habitsAsync = ref.watch(habitsControllerProvider);
     final isDesktop = AppLayout.isDesktop(context);
     final digest = HomeDigest.from(
       tasks: tasksAsync.valueOrNull ?? const [],
       expenses: expensesAsync.valueOrNull ?? const [],
+      incomes: incomesAsync.valueOrNull ?? const [],
       habits: habitsAsync.valueOrNull ?? const [],
     );
-    final loading =
-        tasksAsync.isLoading || expensesAsync.isLoading || habitsAsync.isLoading;
+    final loading = tasksAsync.isLoading ||
+        expensesAsync.isLoading ||
+        incomesAsync.isLoading ||
+        habitsAsync.isLoading;
 
     return Scaffold(
       appBar: isDesktop
@@ -135,6 +140,7 @@ class HomeScreen extends ConsumerWidget {
           ref.read(habitsControllerProvider.notifier).reload();
           ref.invalidate(expensesRawProvider);
           ref.invalidate(expensesSummaryProvider);
+          ref.invalidate(incomesRawProvider);
         },
         child: AppLayout.constrain(
           context: context,
@@ -160,6 +166,7 @@ class HomeScreen extends ConsumerWidget {
               ],
               if (tasksAsync.hasError ||
                   expensesAsync.hasError ||
+                  incomesAsync.hasError ||
                   habitsAsync.hasError)
                 Card(
                   child: Padding(
@@ -170,6 +177,8 @@ class HomeScreen extends ConsumerWidget {
                           'לא ניתן לטעון משימות: ${tasksAsync.error}',
                         if (expensesAsync.hasError)
                           'לא ניתן לטעון הוצאות: ${expensesAsync.error}',
+                        if (incomesAsync.hasError)
+                          'לא ניתן לטעון הכנסות: ${incomesAsync.error}',
                         if (habitsAsync.hasError)
                           'לא ניתן לטעון הרגלים: ${habitsAsync.error}',
                       ].join('\n'),
@@ -369,7 +378,13 @@ class _BriefingCard extends StatelessWidget {
                   onTap: onOpenHabits,
                 ),
                 _SummaryChip(
-                  label: 'החודש',
+                  label: 'נטו',
+                  value: loading ? '—' : _currency.format(digest.monthNet),
+                  color: digest.monthNet >= 0 ? AppColors.income : AppColors.danger,
+                  onTap: onOpenExpenses,
+                ),
+                _SummaryChip(
+                  label: 'הוצאות',
                   value: loading ? '—' : _currency.format(digest.monthTotal),
                   color: AppColors.expenses,
                   onTap: onOpenExpenses,
@@ -679,7 +694,7 @@ class _MoneyCard extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         AppSectionHeader(
-          title: 'תקציר הוצאות',
+          title: 'תזרים כספי',
           actionLabel: 'הכל',
           onAction: onOpenAll,
         ),
@@ -694,7 +709,7 @@ class _MoneyCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text(
-                          'החודש',
+                          'נטו החודש',
                           style: TextStyle(
                             color: AppColors.muted,
                             fontWeight: FontWeight.w600,
@@ -703,11 +718,41 @@ class _MoneyCard extends StatelessWidget {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          _currency.format(digest.monthTotal),
+                          _currency.format(digest.monthNet),
                           style: Theme.of(context)
                               .textTheme
                               .headlineSmall
-                              ?.copyWith(fontWeight: FontWeight.w800),
+                              ?.copyWith(
+                                fontWeight: FontWeight.w800,
+                                color: digest.monthNet >= 0
+                                    ? AppColors.income
+                                    : AppColors.danger,
+                              ),
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                'הכנסות ${_currency.format(digest.monthIncome)}',
+                                style: const TextStyle(
+                                  color: AppColors.income,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              child: Text(
+                                'הוצאות ${_currency.format(digest.monthTotal)}',
+                                style: const TextStyle(
+                                  color: AppColors.expenses,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                         const SizedBox(height: 4),
                         Text(

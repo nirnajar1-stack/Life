@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../features/expenses/presentation/screens/expenses_screen.dart';
+import '../money/money_hub_screen.dart';
 import '../../features/habits/presentation/screens/habits_screen.dart';
 import '../../features/tasks/domain/models/task_enums.dart';
 import '../../features/tasks/domain/providers/task_providers.dart';
@@ -29,7 +29,7 @@ class AppShell extends ConsumerWidget {
       HomeScreen(),
       TasksListScreen(),
       HabitsScreen(),
-      ExpensesScreen(),
+      MoneyHubScreen(),
     ];
 
     Widget badgeIcon({
@@ -99,7 +99,7 @@ class AppShell extends ConsumerWidget {
                     const NavigationRailDestination(
                       icon: Icon(Icons.account_balance_wallet_outlined),
                       selectedIcon: Icon(Icons.account_balance_wallet),
-                      label: Text('הוצאות'),
+                      label: Text('כסף'),
                     ),
                   ],
                 ),
@@ -136,7 +136,7 @@ class AppShell extends ConsumerWidget {
                 const NavigationDestination(
                   icon: Icon(Icons.account_balance_wallet_outlined),
                   selectedIcon: Icon(Icons.account_balance_wallet),
-                  label: 'הוצאות',
+                  label: 'כסף',
                 ),
               ],
               onDestinationSelected: (i) {
