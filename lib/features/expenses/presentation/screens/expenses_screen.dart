@@ -871,15 +871,30 @@ class _SingleExpenseRow extends StatelessWidget {
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(fontWeight: FontWeight.w700),
         ),
-        subtitle: Text(
-          [
-            if (expense.installmentLabel != null) expense.installmentLabel!,
-            expense.normalizedCategory,
-            _shortDateFormat.format(expense.createdAt),
-            if (expense.isSharedExpense && expense.sharedExp != null)
-              sharedSplitLabel(expense.sharedExp),
-          ].join(' · '),
-          style: const TextStyle(color: AppColors.muted, fontSize: 12),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Wrap(
+            spacing: 6,
+            runSpacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text(
+                [
+                  if (expense.installmentLabel != null) expense.installmentLabel!,
+                  expense.normalizedCategory,
+                  _shortDateFormat.format(expense.createdAt),
+                ].join(' · '),
+                style: const TextStyle(color: AppColors.muted, fontSize: 12),
+              ),
+              if (expense.isSharedExpense)
+                AppStatusChip(
+                  label: sharedSplitLabel(expense.sharedExp),
+                  icon: Icons.group,
+                  color: AppColors.shared,
+                  filled: true,
+                ),
+            ],
+          ),
         ),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
@@ -976,6 +991,15 @@ class _LineItemRow extends StatelessWidget {
               style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
             ),
           ),
+          if (expense.isSharedExpense) ...[
+            const SizedBox(width: 6),
+            AppStatusChip(
+              label: sharedSplitLabel(expense.sharedExp),
+              icon: Icons.group,
+              color: AppColors.shared,
+              filled: true,
+            ),
+          ],
           const SizedBox(width: 8),
           Text(
             formatSharedAmount(

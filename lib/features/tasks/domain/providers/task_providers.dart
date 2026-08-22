@@ -140,10 +140,8 @@ class TasksController extends StateNotifier<AsyncValue<List<TaskModel>>> {
     try {
       await _repo.updateTask(next);
       if (status == TaskStatus.done && task.recurrenceRule != null) {
-        final nextDate = nextRecurrenceDate(
-          task.recurrenceRule,
-          task.scheduledDate ?? task.dueDate ?? DateTime.now(),
-        );
+        final base = task.dueDate ?? task.scheduledDate ?? DateTime.now();
+        final nextDate = nextRecurrenceDate(task.recurrenceRule, base);
         if (nextDate != null) {
           final followUp = task.copyWith(
             id: '',

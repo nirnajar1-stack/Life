@@ -190,6 +190,7 @@ class TaskModel {
     bool clearProject = false,
     String? parentTaskId,
     String? recurrenceRule,
+    bool clearRecurrenceRule = false,
     double? sortOrder,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -213,7 +214,9 @@ class TaskModel {
       contextTags: contextTags ?? this.contextTags,
       projectId: clearProject ? null : (projectId ?? this.projectId),
       parentTaskId: parentTaskId ?? this.parentTaskId,
-      recurrenceRule: recurrenceRule ?? this.recurrenceRule,
+      recurrenceRule: clearRecurrenceRule
+          ? null
+          : (recurrenceRule ?? this.recurrenceRule),
       sortOrder: sortOrder ?? this.sortOrder,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,

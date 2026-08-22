@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../data/models/task_model.dart';
+import '../../domain/models/recurrence.dart';
 import '../../domain/models/task_enums.dart';
 
 class TaskRow extends StatelessWidget {
@@ -12,6 +13,7 @@ class TaskRow extends StatelessWidget {
     required this.onSelect,
     required this.onToggle,
     required this.onOpen,
+    this.onDelete,
     this.projectName,
     this.progress,
   });
@@ -21,6 +23,7 @@ class TaskRow extends StatelessWidget {
   final VoidCallback onSelect;
   final VoidCallback onToggle;
   final VoidCallback onOpen;
+  final VoidCallback? onDelete;
   final String? projectName;
   final double? progress;
 
@@ -39,6 +42,8 @@ class TaskRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final recurrence = recurrenceLabel(task.recurrenceRule);
+
     return Material(
       color: selected ? _accent.withValues(alpha: 0.08) : Colors.transparent,
       child: InkWell(
@@ -86,6 +91,7 @@ class TaskRow extends StatelessWidget {
                         task.status.labelHe,
                         if (task.isOverdue) 'באיחור',
                         if (task.isDueToday) 'היום',
+                        if (recurrence != null) recurrence,
                         if (task.contextTags.isNotEmpty)
                           task.contextTags.join(' '),
                         if (projectName != null) '#$projectName',
@@ -103,10 +109,21 @@ class TaskRow extends StatelessWidget {
                   ],
                 ),
               ),
-              IconButton(
-                tooltip: 'עריכה',
-                onPressed: onOpen,
-                icon: const Icon(Icons.more_horiz),
+              PopupMenuButton<String>(
+                tooltip: 'פעולות',
+                onSelected: (value) {
+                  switch (value) {
+                    case 'edit':
+                      onOpen();
+                    case 'delete':
+                      onDelete?.call();
+                  }
+                },
+                itemBuilder: (context) => [
+                  const PopupMenuItem(value: 'edit', child: Text('עריכה')),
+                  if (onDelete != null)
+                    const PopupMenuItem(value: 'delete', child: Text('מחק')),
+                ],
               ),
             ],
           ),

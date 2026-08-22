@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 
 import '../../data/models/task_model.dart';
+import '../../domain/models/recurrence.dart';
 import '../../domain/models/task_enums.dart';
 import '../../domain/providers/task_providers.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -46,6 +47,12 @@ class _AddTaskScreenState extends ConsumerState<AddTaskScreen> {
   late EnergyLevel _energy;
   DateTime? _dueDate;
   bool _isSaving = false;
+  bool _recurring = false;
+  RecurrenceMode _recurrenceMode = RecurrenceMode.weekly;
+  int _weekday = DateTime.friday;
+  int _weekInterval = 1;
+  int _intervalDays = 7;
+  int _leadDays = 0;
 
   @override
   void initState() {
@@ -58,6 +65,19 @@ class _AddTaskScreenState extends ConsumerState<AddTaskScreen> {
     _status = t?.status ?? TaskStatus.ready;
     _energy = t?.energyLevel ?? EnergyLevel.medium;
     _dueDate = t?.dueDate;
+    final recurrence = RecurrenceConfig.fromRule(t?.recurrenceRule);
+    if (recurrence != null) {
+      _recurring = true;
+      _recurrenceMode = recurrence.mode;
+      _weekday = recurrence.weekday;
+      _weekInterval = recurrence.mode == RecurrenceMode.weekly
+          ? recurrence.interval
+          : 1;
+      _intervalDays = recurrence.mode == RecurrenceMode.interval
+          ? recurrence.interval
+          : 7;
+      _leadDays = recurrence.leadDays;
+    }
   }
 
   @override
@@ -79,6 +99,65 @@ class _AddTaskScreenState extends ConsumerState<AddTaskScreen> {
     }
   }
 
+  RecurrenceConfig? _buildRecurrence() {
+    if (!_recurring) return null;
+    switch (_recurrenceMode) {
+      case RecurrenceMode.weekly:
+        return RecurrenceConfig(
+          mode: RecurrenceMode.weekly,
+          weekday: _weekday,
+          interval: _weekInterval,
+          leadDays: _leadDays,
+        );
+      case RecurrenceMode.interval:
+        return RecurrenceConfig(
+          mode: RecurrenceMode.interval,
+          interval: _intervalDays,
+          leadDays: _leadDays,
+        );
+    }
+  }
+
+  Future<void> _deleteTask() async {
+    final task = widget.task;
+    if (task == null) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          title: const Text('מחיקת משימה'),
+          content: Text('למחוק את "${task.title}"?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('ביטול'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
+              child: const Text('מחק'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (confirmed != true) return;
+
+    setState(() => _isSaving = true);
+    try {
+      await ref.read(tasksControllerProvider.notifier).deleteTask(task.id);
+      if (!mounted) return;
+      Navigator.of(context).pop(true);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _isSaving = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('מחיקה נכשלה: $error')),
+      );
+    }
+  }
+
   Future<void> _saveTask() async {
     final title = _titleController.text.trim();
     if (title.isEmpty) {
@@ -90,6 +169,12 @@ class _AddTaskScreenState extends ConsumerState<AddTaskScreen> {
 
     setState(() => _isSaving = true);
     final description = _descriptionController.text.trim();
+    final recurrence = _buildRecurrence();
+    final recurrenceRule = recurrence?.toRule();
+    var dueDate = _dueDate;
+    if (recurrence != null && dueDate == null) {
+      dueDate = recurrence.firstDueFrom(DateTime.now());
+    }
 
     try {
       if (widget.isEditing) {
@@ -101,8 +186,10 @@ class _AddTaskScreenState extends ConsumerState<AddTaskScreen> {
           eisenhower: _eisenhower,
           status: _status,
           energyLevel: _energy,
-          dueDate: _dueDate,
-          clearDueDate: _dueDate == null,
+          dueDate: dueDate,
+          clearDueDate: dueDate == null,
+          recurrenceRule: recurrenceRule,
+          clearRecurrenceRule: !_recurring,
         );
         await ref.read(tasksControllerProvider.notifier).updateTask(updated);
       } else {
@@ -113,8 +200,9 @@ class _AddTaskScreenState extends ConsumerState<AddTaskScreen> {
           status: _status,
           eisenhower: _eisenhower,
           category: _selectedCategory,
-          dueDate: _dueDate,
+          dueDate: dueDate,
           energyLevel: _energy,
+          recurrenceRule: recurrenceRule,
           createdAt: DateTime.now(),
         );
         await ref.read(taskRepositoryProvider).createTask(created);
@@ -307,6 +395,116 @@ class _AddTaskScreenState extends ConsumerState<AddTaskScreen> {
                       ],
                     ),
                   ),
+                  const SizedBox(height: 16),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('משימה חוזרת'),
+                    subtitle: const Text(
+                      'יום בשבוע עם התראה מראש, או כל מספר ימים',
+                      style: TextStyle(fontSize: 12),
+                    ),
+                    value: _recurring,
+                    onChanged: (value) => setState(() => _recurring = value),
+                  ),
+                  if (_recurring) ...[
+                    Wrap(
+                      spacing: 8,
+                      children: [
+                        ChoiceChip(
+                          label: const Text('יום בשבוע'),
+                          selected: _recurrenceMode == RecurrenceMode.weekly,
+                          onSelected: (_) => setState(
+                              () => _recurrenceMode = RecurrenceMode.weekly),
+                        ),
+                        ChoiceChip(
+                          label: const Text('כל X ימים'),
+                          selected: _recurrenceMode == RecurrenceMode.interval,
+                          onSelected: (_) => setState(
+                              () => _recurrenceMode = RecurrenceMode.interval),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    if (_recurrenceMode == RecurrenceMode.weekly) ...[
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: [
+                          for (var day = DateTime.monday;
+                              day <= DateTime.sunday;
+                              day++)
+                            ChoiceChip(
+                              showCheckmark: false,
+                              label: Text(_weekdayShort(day)),
+                              selected: _weekday == day,
+                              onSelected: (_) => setState(() => _weekday = day),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextFormField(
+                              initialValue: '$_weekInterval',
+                              keyboardType: TextInputType.number,
+                              decoration: const InputDecoration(
+                                labelText: 'כל כמה שבועות',
+                                border: OutlineInputBorder(),
+                              ),
+                              onChanged: (value) {
+                                final parsed = int.tryParse(value.trim());
+                                if (parsed != null && parsed > 0) {
+                                  setState(() => _weekInterval = parsed);
+                                }
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ] else
+                      TextFormField(
+                        initialValue: '$_intervalDays',
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'כל כמה ימים',
+                          border: OutlineInputBorder(),
+                        ),
+                        onChanged: (value) {
+                          final parsed = int.tryParse(value.trim());
+                          if (parsed != null && parsed > 0) {
+                            setState(() => _intervalDays = parsed);
+                          }
+                        },
+                      ),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      initialValue: '$_leadDays',
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'ימים לפני (להקפיץ מוקדם)',
+                        hintText: 'למשל 2 = משימה יופיע 2 ימים לפני',
+                        border: OutlineInputBorder(),
+                      ),
+                      onChanged: (value) {
+                        final parsed = int.tryParse(value.trim());
+                        if (parsed != null && parsed >= 0) {
+                          setState(() => _leadDays = parsed);
+                        }
+                      },
+                    ),
+                    if (_buildRecurrence() != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        _buildRecurrence()!.labelHe,
+                        style: const TextStyle(
+                          color: AppColors.muted,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ],
                   const SizedBox(height: 20),
                   SizedBox(
                     width: double.infinity,
@@ -331,6 +529,22 @@ class _AddTaskScreenState extends ConsumerState<AddTaskScreen> {
                             ),
                     ),
                   ),
+                  if (widget.isEditing) ...[
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 46,
+                      child: OutlinedButton.icon(
+                        onPressed: _isSaving ? null : _deleteTask,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.danger,
+                          side: const BorderSide(color: AppColors.danger),
+                        ),
+                        icon: const Icon(Icons.delete_outline),
+                        label: const Text('מחק משימה'),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -338,5 +552,10 @@ class _AddTaskScreenState extends ConsumerState<AddTaskScreen> {
         ),
       ),
     );
+  }
+
+  static String _weekdayShort(int weekday) {
+    const labels = ['ב', 'ג', 'ד', 'ה', 'ו', 'ש', 'א'];
+    return labels[(weekday.clamp(1, 7)) - 1];
   }
 }

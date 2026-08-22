@@ -54,6 +54,47 @@ class _TasksListScreenState extends ConsumerState<TasksListScreen> {
     ref.read(tasksControllerProvider.notifier).reload();
   }
 
+  Future<void> _deleteTask(TaskModel task) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          title: const Text('מחיקת משימה'),
+          content: Text('למחוק את "${task.title}"?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('ביטול'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
+              child: const Text('מחק'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    try {
+      await ref.read(tasksControllerProvider.notifier).deleteTask(task.id);
+      if (ref.read(selectedTaskIdProvider) == task.id) {
+        ref.read(selectedTaskIdProvider.notifier).state = null;
+      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('נמחק: ${task.title}')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('מחיקה נכשלה: $error')),
+      );
+    }
+  }
+
   Future<void> _submitCapture() async {
     final text = _capture.text.trim();
     if (text.isEmpty) return;
@@ -201,6 +242,7 @@ class _TasksListScreenState extends ConsumerState<TasksListScreen> {
                             selectedId: selectedId,
                             projectsById: projectsById,
                             onOpen: _openForm,
+                            onDelete: _deleteTask,
                           );
                         case TasksWorkspaceView.today:
                           body = _TodayView(
@@ -208,6 +250,7 @@ class _TasksListScreenState extends ConsumerState<TasksListScreen> {
                             selectedId: selectedId,
                             projectsById: projectsById,
                             onOpen: _openForm,
+                            onDelete: _deleteTask,
                           );
                         case TasksWorkspaceView.matrix:
                           body = _MatrixView(
@@ -215,6 +258,7 @@ class _TasksListScreenState extends ConsumerState<TasksListScreen> {
                             selectedId: selectedId,
                             projectsById: projectsById,
                             onOpen: _openForm,
+                            onDelete: _deleteTask,
                           );
                         case TasksWorkspaceView.calendar:
                           body = _CalendarView(
@@ -224,6 +268,7 @@ class _TasksListScreenState extends ConsumerState<TasksListScreen> {
                             selectedId: selectedId,
                             projectsById: projectsById,
                             onOpen: _openForm,
+                            onDelete: _deleteTask,
                           );
                         case TasksWorkspaceView.review:
                           body = _ReviewView(
@@ -233,6 +278,7 @@ class _TasksListScreenState extends ConsumerState<TasksListScreen> {
                             selectedId: selectedId,
                             projectsById: projectsById,
                             onOpen: _openForm,
+                            onDelete: _deleteTask,
                           );
                       }
                       return body;
@@ -317,12 +363,14 @@ class _InboxView extends ConsumerWidget {
     required this.selectedId,
     required this.projectsById,
     required this.onOpen,
+    required this.onDelete,
   });
 
   final List<TaskModel> tasks;
   final String? selectedId;
   final Map<String, ProjectModel> projectsById;
   final ValueChanged<TaskModel> onOpen;
+  final ValueChanged<TaskModel> onDelete;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -349,6 +397,7 @@ class _InboxView extends ConsumerWidget {
           onToggle: () =>
               ref.read(tasksControllerProvider.notifier).toggleComplete(task),
           onOpen: () => onOpen(task),
+          onDelete: () => onDelete(task),
         );
       },
     );
@@ -361,12 +410,14 @@ class _TodayView extends ConsumerWidget {
     required this.selectedId,
     required this.projectsById,
     required this.onOpen,
+    required this.onDelete,
   });
 
   final List<TaskModel> tasks;
   final String? selectedId;
   final Map<String, ProjectModel> projectsById;
   final ValueChanged<TaskModel> onOpen;
+  final ValueChanged<TaskModel> onDelete;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -430,6 +481,7 @@ class _TodayView extends ConsumerWidget {
                   .read(tasksControllerProvider.notifier)
                   .toggleComplete(task),
               onOpen: () => onOpen(task),
+              onDelete: () => onDelete(task),
             ),
         ],
       );
@@ -493,12 +545,14 @@ class _MatrixView extends ConsumerWidget {
     required this.selectedId,
     required this.projectsById,
     required this.onOpen,
+    required this.onDelete,
   });
 
   final List<TaskModel> tasks;
   final String? selectedId;
   final Map<String, ProjectModel> projectsById;
   final ValueChanged<TaskModel> onOpen;
+  final ValueChanged<TaskModel> onDelete;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -554,6 +608,7 @@ class _MatrixView extends ConsumerWidget {
                                   .read(tasksControllerProvider.notifier)
                                   .toggleComplete(task),
                               onOpen: () => onOpen(task),
+                              onDelete: () => onDelete(task),
                             ),
                           ),
                       ],
@@ -604,6 +659,7 @@ class _CalendarView extends ConsumerWidget {
     required this.selectedId,
     required this.projectsById,
     required this.onOpen,
+    required this.onDelete,
   });
 
   final List<TaskModel> tasks;
@@ -612,6 +668,7 @@ class _CalendarView extends ConsumerWidget {
   final String? selectedId;
   final Map<String, ProjectModel> projectsById;
   final ValueChanged<TaskModel> onOpen;
+  final ValueChanged<TaskModel> onDelete;
 
   DateTime get _day => DateTime(day.year, day.month, day.day);
 
@@ -673,6 +730,7 @@ class _CalendarView extends ConsumerWidget {
                       .read(tasksControllerProvider.notifier)
                       .toggleComplete(task),
                   onOpen: () => onOpen(task),
+                  onDelete: () => onDelete(task),
                 ),
               ),
           ],
@@ -839,6 +897,7 @@ class _ReviewView extends ConsumerWidget {
     required this.selectedId,
     required this.projectsById,
     required this.onOpen,
+    required this.onDelete,
   });
 
   final List<TaskModel> tasks;
@@ -847,6 +906,7 @@ class _ReviewView extends ConsumerWidget {
   final String? selectedId;
   final Map<String, ProjectModel> projectsById;
   final ValueChanged<TaskModel> onOpen;
+  final ValueChanged<TaskModel> onDelete;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -959,6 +1019,7 @@ class _ReviewView extends ConsumerWidget {
               onToggle: () =>
                   ref.read(tasksControllerProvider.notifier).toggleComplete(task),
               onOpen: () => onOpen(task),
+              onDelete: () => onDelete(task),
             ),
           ),
       ],
