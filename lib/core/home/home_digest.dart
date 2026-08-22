@@ -116,7 +116,8 @@ class HomeDigest {
     final byParent = <String, double>{};
     for (final expense in thisMonth) {
       final parent = ExpenseCategoryTaxonomy.resolveParent(expense.category);
-      byParent[parent] = (byParent[parent] ?? 0) + expense.amount;
+      byParent[parent] =
+          (byParent[parent] ?? 0) + expense.actualAmount;
     }
     String? topCategory;
     double? topAmount;
@@ -142,10 +143,10 @@ class HomeDigest {
       today: today,
       thisWeek: thisWeek,
       openCount: tasks.length,
-      monthTotal: thisMonth.fold<double>(0, (sum, e) => sum + e.amount),
+      monthTotal: thisMonth.fold<double>(0, (sum, e) => sum + e.actualAmount),
       previousMonthTotal:
-          previousMonth.fold<double>(0, (sum, e) => sum + e.amount),
-      todaySpend: todayItems.fold<double>(0, (sum, e) => sum + e.amount),
+          previousMonth.fold<double>(0, (sum, e) => sum + e.actualAmount),
+      todaySpend: todayItems.fold<double>(0, (sum, e) => sum + e.actualAmount),
       topCategory: topCategory,
       topCategoryAmount: topAmount,
       recent: recent.take(3).toList(),

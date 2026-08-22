@@ -43,11 +43,32 @@ extension ExpenseNatureX on ExpenseNature {
   }
 }
 
-/// Shared-expense flag helpers for `Shared_exp`.
+/// Shared-expense helpers for `Shared_exp`.
+///
+/// When [sharedExp] is 2+, the purchase is split between that many people and
+/// only `amount / sharedExp` counts toward totals.
 class SharedExpenseFlag {
   const SharedExpenseFlag._();
 
+  static const int defaultSplit = 2;
+
   static bool isShared(int? value) => (value ?? 0) > 0;
 
-  static int toDb(bool shared) => shared ? 1 : 0;
+  /// Number of people sharing the expense; null when personal.
+  static int? splitCount(int? value) {
+    if (value == null || value <= 0) return null;
+    return value;
+  }
+
+  /// Personal share that should count in monthly/category totals.
+  static double actualAmount(double amount, int? sharedExp) {
+    final split = sharedExp ?? 0;
+    if (split <= 0) return amount;
+    return amount / split;
+  }
+
+  static int toDb({required bool shared, int split = defaultSplit}) {
+    if (!shared) return 0;
+    return split < 2 ? defaultSplit : split;
+  }
 }

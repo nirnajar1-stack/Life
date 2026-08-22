@@ -1,4 +1,5 @@
 import '../../data/models/expense_model.dart';
+import 'expense_nature.dart';
 
 /// A single ledger row: either one expense, or a receipt-style group
 /// of line items that share the same [messageId] (e.g. a supermarket run).
@@ -24,6 +25,24 @@ class ExpenseTransaction {
 
   double get total =>
       items.fold(0, (sum, item) => sum + item.amount);
+
+  /// Personal share after shared-expense split.
+  double get actualTotal =>
+      items.fold(0, (sum, item) => sum + item.actualAmount);
+
+  int? get sharedSplit {
+    int? value;
+    for (final item in items) {
+      final split = SharedExpenseFlag.splitCount(item.sharedExp);
+      if (split == null) continue;
+      value ??= split;
+      if (split != value) return value;
+    }
+    return value;
+  }
+
+  bool get isShared =>
+      items.any((item) => SharedExpenseFlag.isShared(item.sharedExp));
 
   /// Dominant / primary category for the header row.
   String get primaryCategory {
@@ -97,7 +116,7 @@ class ExpenseMonthSection {
   DateTime get monthStart => DateTime(year, month);
 
   double get total =>
-      transactions.fold(0, (sum, tx) => sum + tx.total);
+      transactions.fold(0, (sum, tx) => sum + tx.actualTotal);
 
   int get transactionCount => transactions.length;
 

@@ -1,3 +1,5 @@
+import '../../domain/models/expense_nature.dart';
+
 /// Represents a single row from the flat `expenses_new` table in Supabase.
 ///
 /// Note: PostgREST returns `numeric` columns as strings, so `amount` is
@@ -53,6 +55,12 @@ class ExpenseModel {
     }
     return 'תשלום $installmentNumber/$installmentsTotal';
   }
+
+  /// Amount that counts toward monthly/category totals after shared split.
+  double get actualAmount =>
+      SharedExpenseFlag.actualAmount(amount, sharedExp);
+
+  bool get isSharedExpense => SharedExpenseFlag.isShared(sharedExp);
 
   factory ExpenseModel.fromJson(Map<String, dynamic> json) {
     return ExpenseModel(

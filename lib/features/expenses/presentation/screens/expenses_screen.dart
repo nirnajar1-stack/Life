@@ -13,6 +13,7 @@ import '../../domain/models/expense_nature.dart';
 import '../../domain/models/expense_period.dart';
 import '../../domain/providers/expense_providers.dart';
 import '../widgets/expenses_dashboard_view.dart';
+import '../widgets/shared_split_controls.dart';
 import 'expense_form_screen.dart';
 
 final _currency =
@@ -71,30 +72,193 @@ class ExpensesScreen extends ConsumerWidget {
     final mid = tx.messageId?.trim();
     if (mid == null || mid.isEmpty) return;
 
-    final currentlyShared =
-        tx.items.any((e) => SharedExpenseFlag.isShared(e.sharedExp));
-    final next = !currentlyShared;
+    if (tx.isShared) {
+      try {
+        await ref.read(expenseRepositoryProvider).updateSharedFlagForMessage(
+              messageId: mid,
+              sharedExp: 0,
+            );
+        await _refresh(ref);
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('הקנייה סומנה כאישית (${tx.itemCount} פריטים)'),
+          ),
+        );
+      } catch (error) {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('עדכון משותפת נכשל: $error')),
+        );
+      }
+      return;
+    }
+
+    final split = await showSharedSplitDialog(
+      context,
+      initial: tx.sharedSplit ?? SharedExpenseFlag.defaultSplit,
+      message: 'יחול על כל ${tx.itemCount} הפריטים בקנייה',
+    );
+    if (split == null) return;
 
     try {
       await ref.read(expenseRepositoryProvider).updateSharedFlagForMessage(
             messageId: mid,
-            sharedExp: SharedExpenseFlag.toDb(next),
+            sharedExp: split,
           );
       await _refresh(ref);
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            next
-                ? 'הקנייה סומנה כמשותפת (${tx.itemCount} פריטים)'
-                : 'הקנייה סומנה כלא משותפת (${tx.itemCount} פריטים)',
-          ),
+          content: Text('הקנייה סומנה כמשותפת בין $split (${tx.itemCount} פריטים)'),
         ),
       );
     } catch (error) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('עדכון משותפת נכשל: $error')),
+      );
+    }
+  }
+
+  Future<void> _editSharedSplit(
+    BuildContext context,
+    WidgetRef ref,
+    ExpenseTransaction tx,
+  ) async {
+    final split = await showSharedSplitDialog(
+      context,
+      initial: tx.sharedSplit ?? SharedExpenseFlag.defaultSplit,
+      title: 'עדכון חלוקה',
+      message: tx.isGrouped
+          ? 'יחול על כל ${tx.itemCount} הפריטים בקנייה'
+          : 'רק החלק שלך ייספר בסיכומים',
+    );
+    if (split == null) return;
+
+    try {
+      final repo = ref.read(expenseRepositoryProvider);
+      final mid = tx.messageId?.trim();
+      if (mid != null && mid.isNotEmpty) {
+        await repo.updateSharedFlagForMessage(
+          messageId: mid,
+          sharedExp: split,
+        );
+      } else {
+        await repo.updateExpense(
+          tx.items.first.copyWith(sharedExp: split),
+        );
+      }
+      await _refresh(ref);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('החלוקה עודכנה ל-$split')),
+      );
+    } catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('עדכון חלוקה נכשל: $error')),
+      );
+    }
+  }
+
+  Future<void> _clearSharedSplit(
+    BuildContext context,
+    WidgetRef ref,
+    ExpenseTransaction tx,
+  ) async {
+    try {
+      final repo = ref.read(expenseRepositoryProvider);
+      final mid = tx.messageId?.trim();
+      if (mid != null && mid.isNotEmpty) {
+        await repo.updateSharedFlagForMessage(messageId: mid, sharedExp: 0);
+      } else {
+        await repo.updateExpense(tx.items.first.copyWith(sharedExp: 0));
+      }
+      await _refresh(ref);
+    } catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('עדכון נכשל: $error')),
+      );
+    }
+  }
+
+  Future<void> _toggleSharedForTransaction(
+    BuildContext context,
+    WidgetRef ref,
+    ExpenseTransaction tx,
+  ) async {
+    if (tx.isGrouped) {
+      await _toggleSharedForMessage(context, ref, tx);
+      return;
+    }
+    if (tx.isShared) {
+      await _clearSharedSplit(context, ref, tx);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('ההוצאה סומנה כאישית')),
+      );
+      return;
+    }
+    await _editSharedSplit(context, ref, tx);
+  }
+
+  Future<void> _deleteTransaction(
+    BuildContext context,
+    WidgetRef ref,
+    ExpenseTransaction tx,
+  ) async {
+    final title =
+        tx.isGrouped ? 'מחיקת קנייה שלמה' : 'מחיקת הוצאה';
+    final body = tx.isGrouped
+        ? 'למחוק את "${tx.title}" עם כל ${tx.itemCount} הפריטים?'
+        : 'למחוק את "${tx.items.first.itemName}"?';
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          title: Text(title),
+          content: Text(body),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('ביטול'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
+              child: const Text('מחק'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (confirmed != true) return;
+
+    try {
+      final repo = ref.read(expenseRepositoryProvider);
+      final mid = tx.messageId?.trim();
+      if (tx.isGrouped && mid != null && mid.isNotEmpty) {
+        await repo.deleteExpensesByMessageId(mid);
+      } else {
+        await repo.deleteExpense(tx.items.first.id);
+      }
+      await _refresh(ref);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            tx.isGrouped ? 'הקנייה נמחקה (${tx.itemCount} פריטים)' : 'ההוצאה נמחקה',
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('המחיקה נכשלה: $error')),
       );
     }
   }
@@ -248,7 +412,11 @@ class ExpensesScreen extends ConsumerWidget {
                                         _deleteExpense(context, ref, e,
                                             alreadyConfirmed: alreadyConfirmed),
                                 onToggleShared: (tx) =>
-                                    _toggleSharedForMessage(context, ref, tx),
+                                    _toggleSharedForTransaction(context, ref, tx),
+                                onEditShared: (tx) =>
+                                    _editSharedSplit(context, ref, tx),
+                                onDeleteTransaction: (tx) =>
+                                    _deleteTransaction(context, ref, tx),
                                 onAdd: () => _openForm(context, ref),
                               ),
                           ],
@@ -289,6 +457,8 @@ class _MonthlyLedger extends StatelessWidget {
     required this.onEdit,
     required this.onDelete,
     required this.onToggleShared,
+    required this.onEditShared,
+    required this.onDeleteTransaction,
     required this.onAdd,
   });
 
@@ -296,6 +466,8 @@ class _MonthlyLedger extends StatelessWidget {
   final void Function(ExpenseModel expense, {int messageGroupSize}) onEdit;
   final void Function(ExpenseModel expense, {bool alreadyConfirmed}) onDelete;
   final ValueChanged<ExpenseTransaction> onToggleShared;
+  final ValueChanged<ExpenseTransaction> onEditShared;
+  final ValueChanged<ExpenseTransaction> onDeleteTransaction;
   final VoidCallback onAdd;
 
   @override
@@ -323,6 +495,8 @@ class _MonthlyLedger extends StatelessWidget {
               onEdit: onEdit,
               onDelete: onDelete,
               onToggleShared: () => onToggleShared(tx),
+              onEditShared: () => onEditShared(tx),
+              onDeleteTransaction: () => onDeleteTransaction(tx),
             ),
           const SizedBox(height: 20),
         ],
@@ -382,28 +556,36 @@ class _TransactionTile extends StatelessWidget {
     required this.onEdit,
     required this.onDelete,
     required this.onToggleShared,
+    required this.onEditShared,
+    required this.onDeleteTransaction,
   });
 
   final ExpenseTransaction transaction;
   final void Function(ExpenseModel expense, {int messageGroupSize}) onEdit;
   final void Function(ExpenseModel expense, {bool alreadyConfirmed}) onDelete;
   final VoidCallback onToggleShared;
+  final VoidCallback onEditShared;
+  final VoidCallback onDeleteTransaction;
 
   @override
   Widget build(BuildContext context) {
     if (!transaction.isGrouped) {
+      final expense = transaction.items.first;
       return _SingleExpenseRow(
-        expense: transaction.items.first,
-        onEdit: () => onEdit(transaction.items.first),
+        expense: expense,
+        onEdit: () => onEdit(expense),
         onDelete: ({bool alreadyConfirmed = false}) => onDelete(
-          transaction.items.first,
+          expense,
           alreadyConfirmed: alreadyConfirmed,
         ),
+        onToggleShared: onToggleShared,
+        onEditShared: transaction.isShared ? onEditShared : null,
+        onDeleteTransaction: onDeleteTransaction,
       );
     }
 
-    final isShared = transaction.items
-        .any((e) => SharedExpenseFlag.isShared(e.sharedExp));
+    final isShared = transaction.isShared;
+    final split = transaction.sharedSplit;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
@@ -431,9 +613,9 @@ class _TransactionTile extends StatelessWidget {
                   '${_dayFormat.format(transaction.date)} · ${transaction.itemCount} פריטים',
                   style: const TextStyle(color: AppColors.muted, fontSize: 12),
                 ),
-                if (isShared)
-                  const AppStatusChip(
-                    label: 'משותפת',
+                if (isShared && split != null)
+                  AppStatusChip(
+                    label: 'משותף $split',
                     icon: Icons.group,
                     color: AppColors.shared,
                     filled: true,
@@ -441,25 +623,79 @@ class _TransactionTile extends StatelessWidget {
               ],
             ),
           ),
-          trailing: Text(
-            _currencyPrecise.format(transaction.total),
-            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+          trailing: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                formatSharedAmount(
+                  gross: transaction.total,
+                  actual: transaction.actualTotal,
+                  sharedExp: split,
+                  formatMoney: _currencyPrecise.format,
+                ),
+                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+              ),
+              PopupMenuButton<String>(
+                tooltip: 'עוד פעולות',
+                onSelected: (value) {
+                  switch (value) {
+                    case 'edit_split':
+                      onEditShared();
+                    case 'toggle_shared':
+                      onToggleShared();
+                    case 'delete_all':
+                      onDeleteTransaction();
+                  }
+                },
+                itemBuilder: (context) => [
+                  if (isShared)
+                    const PopupMenuItem(
+                      value: 'edit_split',
+                      child: Text('עריכת חלוקה'),
+                    )
+                  else
+                    const PopupMenuItem(
+                      value: 'toggle_shared',
+                      child: Text('סמן כמשותפת'),
+                    ),
+                  const PopupMenuItem(
+                    value: 'delete_all',
+                    child: Text('מחק את כל הקנייה'),
+                  ),
+                ],
+              ),
+            ],
           ),
           children: [
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Align(
-                alignment: Alignment.centerRight,
-                child: FilterChip(
-                  showCheckmark: false,
-                  avatar: Icon(
-                    isShared ? Icons.group : Icons.person_outline,
-                    size: 18,
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  FilterChip(
+                    showCheckmark: false,
+                    avatar: Icon(
+                      isShared ? Icons.group : Icons.person_outline,
+                      size: 18,
+                    ),
+                    label: Text(isShared ? 'קנייה משותפת' : 'סמן כמשותפת'),
+                    selected: isShared,
+                    onSelected: (_) => onToggleShared(),
                   ),
-                  label: Text(isShared ? 'קנייה משותפת' : 'סמן כמשותפת'),
-                  selected: isShared,
-                  onSelected: (_) => onToggleShared(),
-                ),
+                  if (isShared)
+                    ActionChip(
+                      avatar: const Icon(Icons.edit, size: 16),
+                      label: Text('חלוקה: $split'),
+                      onPressed: onEditShared,
+                    ),
+                  ActionChip(
+                    avatar: const Icon(Icons.delete_outline, size: 16),
+                    label: const Text('מחק קנייה'),
+                    onPressed: onDeleteTransaction,
+                  ),
+                ],
               ),
             ),
             const Divider(),
@@ -482,11 +718,17 @@ class _SingleExpenseRow extends StatelessWidget {
     required this.expense,
     required this.onEdit,
     required this.onDelete,
+    required this.onToggleShared,
+    this.onEditShared,
+    required this.onDeleteTransaction,
   });
 
   final ExpenseModel expense;
   final VoidCallback onEdit;
   final void Function({bool alreadyConfirmed}) onDelete;
+  final VoidCallback onToggleShared;
+  final VoidCallback? onEditShared;
+  final VoidCallback onDeleteTransaction;
 
   Future<bool> _confirmDelete(BuildContext context) async {
     final result = await showDialog<bool>(
@@ -537,6 +779,8 @@ class _SingleExpenseRow extends StatelessWidget {
             if (expense.installmentLabel != null) expense.installmentLabel!,
             expense.normalizedCategory,
             _shortDateFormat.format(expense.createdAt),
+            if (expense.isSharedExpense && expense.sharedExp != null)
+              sharedSplitLabel(expense.sharedExp),
           ].join(' · '),
           style: const TextStyle(color: AppColors.muted, fontSize: 12),
         ),
@@ -544,7 +788,12 @@ class _SingleExpenseRow extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              _currencyPrecise.format(expense.amount),
+              formatSharedAmount(
+                gross: expense.amount,
+                actual: expense.actualAmount,
+                sharedExp: expense.sharedExp,
+                formatMoney: _currencyPrecise.format,
+              ),
               style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
             ),
             if (!allowSwipe)
@@ -553,10 +802,27 @@ class _SingleExpenseRow extends StatelessWidget {
                 onSelected: (value) {
                   if (value == 'edit') onEdit();
                   if (value == 'delete') onDelete();
+                  if (value == 'toggle_shared') onToggleShared();
+                  if (value == 'edit_split') onEditShared?.call();
                 },
-                itemBuilder: (context) => const [
-                  PopupMenuItem(value: 'edit', child: Text('עריכה')),
-                  PopupMenuItem(value: 'delete', child: Text('מחיקה')),
+                itemBuilder: (context) => [
+                  const PopupMenuItem(value: 'edit', child: Text('עריכה')),
+                  if (expense.isSharedExpense && onEditShared != null)
+                    const PopupMenuItem(
+                      value: 'edit_split',
+                      child: Text('עריכת חלוקה'),
+                    )
+                  else
+                    const PopupMenuItem(
+                      value: 'toggle_shared',
+                      child: Text('סמן כמשותפת'),
+                    ),
+                  if (expense.isSharedExpense)
+                    const PopupMenuItem(
+                      value: 'toggle_shared',
+                      child: Text('בטל משותפת'),
+                    ),
+                  const PopupMenuItem(value: 'delete', child: Text('מחיקה')),
                 ],
               ),
           ],
@@ -615,7 +881,12 @@ class _LineItemRow extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           Text(
-            _currencyPrecise.format(expense.amount),
+            formatSharedAmount(
+              gross: expense.amount,
+              actual: expense.actualAmount,
+              sharedExp: expense.sharedExp,
+              formatMoney: _currencyPrecise.format,
+            ),
             style: const TextStyle(fontWeight: FontWeight.w800),
           ),
         ],

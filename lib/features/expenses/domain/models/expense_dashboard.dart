@@ -228,10 +228,11 @@ ExpenseDashboard buildExpenseDashboard(
   final Map<String, double> prevMonthByParent = {};
 
   for (final e in expenses) {
-    grandTotal += e.amount;
+    final personal = e.actualAmount;
+    grandTotal += personal;
     final monthKey = _monthKey(e.createdAt);
 
-    monthTotals[monthKey] = (monthTotals[monthKey] ?? 0) + e.amount;
+    monthTotals[monthKey] = (monthTotals[monthKey] ?? 0) + personal;
     monthItems[monthKey] = (monthItems[monthKey] ?? 0) + 1;
 
     final txKey = (e.messageId != null && e.messageId!.trim().isNotEmpty)
@@ -240,20 +241,20 @@ ExpenseDashboard buildExpenseDashboard(
     monthTxKeys.putIfAbsent(monthKey, () => {}).add(txKey);
 
     final parent = ExpenseCategoryTaxonomy.resolveParent(e.category);
-    parentTotals[parent] = (parentTotals[parent] ?? 0) + e.amount;
+    parentTotals[parent] = (parentTotals[parent] ?? 0) + personal;
     parentCounts[parent] = (parentCounts[parent] ?? 0) + 1;
 
     final raw = e.normalizedCategory.isEmpty ? 'ללא קטגוריה' : e.normalizedCategory;
-    rawTotals[raw] = (rawTotals[raw] ?? 0) + e.amount;
+    rawTotals[raw] = (rawTotals[raw] ?? 0) + personal;
     rawCounts[raw] = (rawCounts[raw] ?? 0) + 1;
 
     if (monthKey == thisMonthKey) {
-      thisMonthTotal += e.amount;
-      thisMonthByParent[parent] = (thisMonthByParent[parent] ?? 0) + e.amount;
+      thisMonthTotal += personal;
+      thisMonthByParent[parent] = (thisMonthByParent[parent] ?? 0) + personal;
     }
     if (monthKey == prevMonthKey) {
-      previousMonthTotal += e.amount;
-      prevMonthByParent[parent] = (prevMonthByParent[parent] ?? 0) + e.amount;
+      previousMonthTotal += personal;
+      prevMonthByParent[parent] = (prevMonthByParent[parent] ?? 0) + personal;
     }
 
     final nature = ExpenseNatureX.resolve(
@@ -262,18 +263,18 @@ ExpenseDashboard buildExpenseDashboard(
     );
     switch (nature) {
       case ExpenseNature.fixed:
-        fixedTotal += e.amount;
+        fixedTotal += personal;
         fixedCount++;
       case ExpenseNature.installment:
-        installmentTotal += e.amount;
+        installmentTotal += personal;
         installmentCount++;
       case ExpenseNature.variable:
-        variableTotal += e.amount;
+        variableTotal += personal;
         variableCount++;
     }
 
     final source = _cleanSource(e.source);
-    sourceTotals[source] = (sourceTotals[source] ?? 0) + e.amount;
+    sourceTotals[source] = (sourceTotals[source] ?? 0) + personal;
     sourceCounts[source] = (sourceCounts[source] ?? 0) + 1;
   }
 
@@ -340,10 +341,10 @@ ExpenseDashboard buildExpenseDashboard(
   final transactions = buildExpenseLedger(expenses)
       .expand((month) => month.transactions)
       .toList()
-    ..sort((a, b) => b.total.compareTo(a.total));
+    ..sort((a, b) => b.actualTotal.compareTo(a.actualTotal));
 
   final topItems = List<ExpenseModel>.from(expenses)
-    ..sort((a, b) => b.amount.compareTo(a.amount));
+    ..sort((a, b) => b.actualAmount.compareTo(a.actualAmount));
 
   return ExpenseDashboard(
     period: period,

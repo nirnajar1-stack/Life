@@ -867,7 +867,7 @@ class _TopTransactionsCard extends StatelessWidget {
                         '${transactions[i].date.year}',
               ),
               trailing: Text(
-                _currencyPrecise.format(transactions[i].total),
+                _currencyPrecise.format(transactions[i].actualTotal),
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
             ),
@@ -909,7 +909,7 @@ class _TopItemsCard extends StatelessWidget {
                 '${items[i].createdAt.year}',
               ),
               trailing: Text(
-                _currencyPrecise.format(items[i].amount),
+                _currencyPrecise.format(items[i].actualAmount),
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
             ),

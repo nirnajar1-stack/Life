@@ -120,6 +120,26 @@ class ExpenseRepository {
     }
   }
 
+  /// Deletes every line item that belongs to the same receipt [messageId].
+  Future<void> deleteExpensesByMessageId(String messageId) async {
+    final mid = messageId.trim();
+    if (mid.isEmpty) {
+      throw ArgumentError('messageId must not be empty');
+    }
+
+    try {
+      await _client.from(_tableName).delete().eq('message_id', mid);
+    } catch (error, stackTrace) {
+      developer.log(
+        'Failed to delete expenses by message',
+        name: 'ExpenseRepository.deleteExpensesByMessageId',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      rethrow;
+    }
+  }
+
   /// Deletes an expense by its id.
   Future<void> deleteExpense(int id) async {
     try {
@@ -146,7 +166,7 @@ class ExpenseRepository {
     required DateTime firstChargeDate,
     required String category,
     required String subCategory,
-    required bool isShared,
+    int sharedSplit = 0,
     String source = 'life_app',
   }) async {
     if (installmentsCount < 2) {
@@ -184,7 +204,7 @@ class ExpenseRepository {
           'sub_category': subCategory,
           'is_fixed': 0,
           'source': source,
-          'Shared_exp': isShared ? 1 : 0,
+          'Shared_exp': sharedSplit,
           'installment_group_id': groupId,
           'installment_number': i,
           'installments_total': installmentsCount,

@@ -9,6 +9,7 @@ import '../../data/models/expense_model.dart';
 import '../../domain/models/expense_category_taxonomy.dart';
 import '../../domain/models/expense_nature.dart';
 import '../../domain/providers/expense_providers.dart';
+import '../widgets/shared_split_controls.dart';
 
 final _dateFormat = DateFormat('dd/MM/yyyy');
 
@@ -46,6 +47,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
   late DateTime _date;
   late ExpenseNature _nature;
   late bool _isShared;
+  late int _sharedSplit;
   late String _parentCategory;
   bool _isSaving = false;
 
@@ -67,6 +69,8 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
       installmentGroupId: e?.installmentGroupId,
     );
     _isShared = SharedExpenseFlag.isShared(e?.sharedExp);
+    _sharedSplit = SharedExpenseFlag.splitCount(e?.sharedExp) ??
+        SharedExpenseFlag.defaultSplit;
     _parentCategory = e == null
         ? ExpenseCategoryTaxonomy.food
         : ExpenseCategoryTaxonomy.resolveParent(e.category);
@@ -119,7 +123,10 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
         double.tryParse(_amountController.text.trim().replaceAll(',', '.')) ??
             0;
     final repo = ref.read(expenseRepositoryProvider);
-    final sharedValue = SharedExpenseFlag.toDb(_isShared);
+    final sharedValue = SharedExpenseFlag.toDb(
+      shared: _isShared,
+      split: _sharedSplit,
+    );
     final subCategory = _subCategoryController.text.trim().isEmpty
         ? 'כללי'
         : _subCategoryController.text.trim();
@@ -155,7 +162,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
           firstChargeDate: _date,
           category: _parentCategory,
           subCategory: subCategory,
-          isShared: _isShared,
+          sharedSplit: sharedValue,
         );
       } else {
         final created = ExpenseModel(
@@ -410,11 +417,24 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                               : (!widget.isEditing &&
                                       _nature == ExpenseNature.installment)
                                   ? 'יחול על כל התשלומים בתוכנית'
-                                  : 'מסומן ברמת הפריט',
+                                  : 'רק החלק שלך ייספר בסיכומים החודשיים',
                         ),
                         value: _isShared,
-                        onChanged: (v) => setState(() => _isShared = v),
+                        onChanged: (v) => setState(() {
+                          _isShared = v;
+                          if (v && _sharedSplit < 2) {
+                            _sharedSplit = SharedExpenseFlag.defaultSplit;
+                          }
+                        }),
                       ),
+                      if (_isShared) ...[
+                        const SizedBox(height: 8),
+                        SharedSplitSelector(
+                          split: _sharedSplit,
+                          onChanged: (value) =>
+                              setState(() => _sharedSplit = value),
+                        ),
+                      ],
                       const SizedBox(height: 24),
                       SizedBox(
                         height: 50,
