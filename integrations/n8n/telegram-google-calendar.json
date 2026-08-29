@@ -1,18 +1,8 @@
 {
   "name": "Telegram → Google Calendar + Life App",
-  "meta": {
-    "templateCredsSetupCompleted": false,
-    "description": "Parses Hebrew/English Telegram messages into Google Calendar events and mirrors them into Supabase calendar_events for the Life App."
-  },
   "nodes": [
     {
-      "parameters": {
-        "updates": [
-          "message"
-        ],
-        "additionalFields": {}
-      },
-      "id": "tg-trigger",
+      "id": "00791f33-9f5e-47fd-bddc-764008b70f2a",
       "name": "Telegram Trigger",
       "type": "n8n-nodes-base.telegramTrigger",
       "typeVersion": 1.2,
@@ -20,9 +10,29 @@
         0,
         0
       ],
-      "webhookId": "life-app-telegram-calendar"
+      "webhookId": "152308cd-8b7e-417b-8b11-88f237d69207",
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "TFtFc5bYxuPg7Zwl",
+          "name": "Telegram account 2"
+        }
+      }
     },
     {
+      "id": "33e5488d-d081-4f17-97fa-e9fd69072b6d",
+      "name": "Has Text?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        240,
+        0
+      ],
       "parameters": {
         "conditions": {
           "options": {
@@ -44,30 +54,64 @@
           "combinator": "and"
         },
         "options": {}
-      },
-      "id": "has-text",
-      "name": "Has Text?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.2,
-      "position": [
-        260,
-        0
-      ]
+      }
     },
     {
+      "id": "92195b14-7fd1-4d7e-bd83-8612cfaf72ef",
+      "name": "AI Extract Event",
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1.2,
+      "position": [
+        500,
+        -40
+      ],
       "parameters": {
-        "jsCode": "/**\n * Shared natural-language calendar parser for the n8n Code node.\n * Timezone assumption: Asia/Jerusalem (wall-clock local).\n *\n * Input:  { text, nowIso? }\n * Output: { ok, title, startsAt, endsAt, durationMinutes, timeInferred, durationInferred, error? }\n */\n\nconst WEEKDAYS_HE = {\n  ראשון: 0,\n  שני: 1,\n  שלישי: 2,\n  רביעי: 3,\n  חמישי: 4,\n  שישי: 5,\n  שבת: 6,\n};\n\nconst WEEKDAYS_EN = {\n  sunday: 0,\n  monday: 1,\n  tuesday: 2,\n  wednesday: 3,\n  thursday: 4,\n  friday: 5,\n  saturday: 6,\n};\n\nconst MONTHS_HE = {\n  ינואר: 0,\n  פברואר: 1,\n  מרץ: 2,\n  אפריל: 3,\n  מאי: 4,\n  יוני: 5,\n  יולי: 6,\n  אוגוסט: 7,\n  ספטמבר: 8,\n  אוקטובר: 9,\n  נובמבר: 10,\n  דצמבר: 11,\n};\n\nfunction startOfDay(d) {\n  return new Date(d.getFullYear(), d.getMonth(), d.getDate());\n}\n\nfunction nextWeekday(today, weekdayJs, now) {\n  let delta = (weekdayJs - today.getDay() + 7) % 7;\n  if (delta === 0 && now.getHours() >= 21) delta = 7;\n  const out = new Date(today);\n  out.setDate(out.getDate() + delta);\n  return out;\n}\n\nfunction parseCalendarEvent(raw, now = new Date()) {\n  let text = String(raw || '').trim();\n  if (!text) {\n    return { ok: false, error: 'הודעה ריקה' };\n  }\n\n  const today = startOfDay(now);\n  let day = null;\n  let hour = null;\n  let minute = 0;\n  let durationMinutes = 60;\n  let timeInferred = true;\n  let durationInferred = true;\n  let forceEvening = /בערב|בלילה|אחה[\"״]?צ|אחר\\s*הצהריים/.test(text);\n  let forceMorning = /בבוקר/.test(text);\n\n  text = text.replace(/(?:^|\\s)(?:למשך\\s+)?(\\d+)\\s*(שעות|שעה|דקות|דק|ד)(?=\\s|$)/g, (_, n, unit) => {\n    durationInferred = false;\n    durationMinutes = String(unit).startsWith('שע') ? Number(n) * 60 : Number(n);\n    return ' ';\n  });\n  text = text.replace(/(?:^|\\s)(שעתיים)(?=\\s|$)/g, () => {\n    durationInferred = false;\n    durationMinutes = 120;\n    return ' ';\n  });\n  text = text.replace(/(?:^|\\s)(שעה\\s+אחת|שעה)(?=\\s|$)/g, () => {\n    durationInferred = false;\n    durationMinutes = 60;\n    return ' ';\n  });\n  text = text.replace(\n    /(?:^|\\s)(?:for\\s+)?(\\d+)\\s*(h|hr|hrs|hours?|m|min|mins|minutes?)(?=\\s|$)/gi,\n    (_, n, unit) => {\n      durationInferred = false;\n      durationMinutes = String(unit).toLowerCase().startsWith('h')\n        ? Number(n) * 60\n        : Number(n);\n      return ' ';\n    },\n  );\n\n  text = text.replace(/(?:^|\\s)(\\d{1,2})[./](\\d{1,2})(?:[./](\\d{2,4}))?(?=\\s|$)/g, (_, d, mo, yRaw) => {\n    let y = yRaw == null ? now.getFullYear() : Number(yRaw);\n    if (y < 100) y += 2000;\n    let candidate = new Date(y, Number(mo) - 1, Number(d));\n    if (yRaw == null && candidate < today) {\n      candidate = new Date(y + 1, Number(mo) - 1, Number(d));\n    }\n    day = candidate;\n    return ' ';\n  });\n\n  for (const [name, monthIndex] of Object.entries(MONTHS_HE)) {\n    const re = new RegExp(\n      `(?:^|\\\\s)(?:ב[־\\\\-]?\\\\s*)?(\\\\d{1,2})\\\\s*(?:ל)?\\\\s*${name}(?:\\\\s+(\\\\d{4}))?(?=\\\\s|$)`,\n      'g',\n    );\n    text = text.replace(re, (_, d, yRaw) => {\n      const y = yRaw == null ? now.getFullYear() : Number(yRaw);\n      let candidate = new Date(y, monthIndex, Number(d));\n      if (yRaw == null && candidate < today) {\n        candidate = new Date(y + 1, monthIndex, Number(d));\n      }\n      day = candidate;\n      return ' ';\n    });\n  }\n\n  text = text.replace(/(?:^|\\s)(מחר|tomorrow)(?=\\s|$)/gi, () => {\n    day = new Date(today);\n    day.setDate(day.getDate() + 1);\n    return ' ';\n  });\n  text = text.replace(/(?:^|\\s)(היום|today)(?=\\s|$)/gi, () => {\n    day = new Date(today);\n    return ' ';\n  });\n  text = text.replace(/(?:^|\\s)(?:עוד|בעוד)\\s+(\\d+)\\s*ימים?(?=\\s|$)/g, (_, n) => {\n    day = new Date(today);\n    day.setDate(day.getDate() + Number(n));\n    return ' ';\n  });\n\n  for (const [name, wd] of Object.entries(WEEKDAYS_HE)) {\n    const re = new RegExp(`(?:^|\\\\s)(?:ביום|יום)?\\\\s*${name}(?:\\\\s+הקרוב)?(?=\\\\s|$)`, 'g');\n    text = text.replace(re, () => {\n      day = nextWeekday(today, wd, now);\n      return ' ';\n    });\n  }\n  for (const [name, wd] of Object.entries(WEEKDAYS_EN)) {\n    const re = new RegExp(`(?:^|\\\\s)(?:next\\\\s+)?${name}(?=\\\\s|$)`, 'gi');\n    text = text.replace(re, () => {\n      day = nextWeekday(today, wd, now);\n      return ' ';\n    });\n  }\n\n  text = text.replace(\n    /(?:^|\\s)(?:בשעה|ב[־\\-]?|at)\\s*(\\d{1,2})(?::(\\d{2}))?\\s*(am|pm|בערב|בבוקר)?(?=\\s|$)/gi,\n    (_, h, m, suffix) => {\n      timeInferred = false;\n      hour = Number(h);\n      minute = m == null ? 0 : Number(m);\n      const s = String(suffix || '').toLowerCase();\n      if (s === 'pm' || s === 'בערב') {\n        if (hour < 12) hour += 12;\n      } else if (s === 'am' || s === 'בבוקר') {\n        if (hour === 12) hour = 0;\n      }\n      return ' ';\n    },\n  );\n\n  text = text.replace(\n    /(?:^|\\s)(בערב|בבוקר|בלילה|אחה[\"״]?צ|אחר\\s*הצהריים)(?=\\s|$)/g,\n    ' ',\n  );\n\n  if (!day) {\n    return {\n      ok: false,\n      error:\n        'לא מצאתי תאריך. שלחו למשל: יום שלישי בשעה 6 תור לרופא או 15/9 בשעה 10 פגישה',\n    };\n  }\n\n  if (hour == null) {\n    hour = 9;\n    minute = 0;\n    timeInferred = true;\n  } else if (!forceMorning && (forceEvening || hour <= 7) && hour < 12 && hour > 0) {\n    hour += 12;\n  }\n\n  if (hour > 23 || minute > 59 || durationMinutes <= 0) {\n    return { ok: false, error: 'שעה או משך לא תקינים' };\n  }\n\n  const startsAt = new Date(\n    day.getFullYear(),\n    day.getMonth(),\n    day.getDate(),\n    hour,\n    minute,\n    0,\n    0,\n  );\n  const endsAt = new Date(startsAt.getTime() + durationMinutes * 60_000);\n\n  let title = text.replace(/[־\\-–]+/g, ' ').replace(/\\s+/g, ' ').trim();\n  if (!title) title = 'אירוע';\n  if (title.length > 120) title = title.slice(0, 120);\n\n  return {\n    ok: true,\n    title,\n    startsAt: startsAt.toISOString(),\n    endsAt: endsAt.toISOString(),\n    durationMinutes,\n    timeInferred,\n    durationInferred,\n  };\n}\n\nconst msg = $input.first().json.message || {};\nconst text = msg.text || '';\nconst parsed = parseCalendarEvent(text, new Date());\n\nreturn [{\n  json: {\n    ...parsed,\n    rawText: text,\n    chatId: msg.chat?.id,\n    messageId: msg.message_id,\n  },\n}];\n"
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-2.5-flash",
+          "mode": "list",
+          "cachedResultName": "models/gemini-2.5-flash"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=אתה מנתח הודעות טלגרם לאירועי יומן בעברית/אנגלית.\nהתאריך והשעה עכשיו (ישראל): {{ $now.setZone('Asia/Jerusalem').toFormat(\"yyyy-MM-dd'T'HH:mm:ssZZ\") }}.\n\nהחזר אך ורק אובייקט JSON אחד תקין, בלי טקסט נלווה ובלי ```.\n\nמבנה:\n{\n  \"title\": \"כותרת קצרה של האירוע\",\n  \"startsAt\": \"YYYY-MM-ddTHH:mm:ss+03:00\",\n  \"durationMinutes\": 60,\n  \"hourMentioned\": true,\n  \"durationMentioned\": false,\n  \"rawHour\": 6,\n  \"timeOfDayHint\": \"evening\",\n  \"confidence\": 0.9,\n  \"error\": null\n}\n\nכללים:\n1. title — נושא האירוע בלבד (בלי תאריך/שעה), עד 120 תווים. אם חסר: \"אירוע\".\n2. startsAt — תאריך+שעה באיזור ישראל. יום בשבוע = המופע הקרוב. \"הקרוב\" = הקרוב בעתיד.\n3. durationMinutes — אם צוין משך (שעתיים/45 דקות) השתמש בו וסמן durationMentioned=true; אחרת 60 ו-false.\n4. hourMentioned — true רק אם צוינה שעה במפורש.\n5. rawHour — השעה כפי שנכתבה (1–23) לפני המרות, או null.\n6. timeOfDayHint — \"morning\" אם נאמר בבוקר; \"evening\" אם נאמר בערב/אחה״צ/בלילה; אחרת null.\n7. אם אין תאריך/יום בכלל: error=\"לא מצאתי תאריך\", startsAt=null, confidence=0.\n8. אם אין שעה: startsAt ב-09:00, hourMentioned=false.\n9. אל תמציא פרטים שלא נרמזו.\n\nהודעה:\n{{ $json.message.text }}\n"
+            }
+          ]
+        },
+        "jsonOutput": true,
+        "builtInTools": {},
+        "options": {}
       },
-      "id": "parse-event",
-      "name": "Parse Event",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "DZTNTvPM5Nc4xswY",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "id": "d70fe89f-9e1c-4f4d-af91-5201cb751a28",
+      "name": "Validate & Defaults",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        520,
+        760,
         -40
-      ]
+      ],
+      "parameters": {
+        "jsCode": "\nconst trigger = $('Telegram Trigger').first().json;\nconst msg = trigger.message || {};\nconst rawText = msg.text || '';\nconst chatId = msg.chat?.id;\nconst messageId = msg.message_id;\n\nconst inputItem = $input.first();\nlet rawModel = inputItem.json.content?.parts?.[0]?.text\n  || inputItem.json.text\n  || inputItem.json.output\n  || inputItem.json;\nif (typeof rawModel === 'object' && rawModel !== null) {\n  // jsonOutput mode may already parse\n  if (rawModel.title !== undefined || rawModel.startsAt !== undefined || rawModel.error !== undefined) {\n    rawModel = JSON.stringify(rawModel);\n  } else if (rawModel.content?.parts?.[0]?.text) {\n    rawModel = rawModel.content.parts[0].text;\n  } else {\n    rawModel = JSON.stringify(rawModel);\n  }\n}\n\nlet clean = String(rawModel || '').replace(/```json|```/g, '').trim();\nlet ai = null;\ntry {\n  ai = JSON.parse(clean);\n  if (Array.isArray(ai)) ai = ai[0] || {};\n} catch (e) {\n  return [{\n    json: {\n      ok: false,\n      error: 'AI החזיר JSON לא תקין: ' + e.message,\n      rawText,\n      chatId,\n      messageId,\n      source: 'hybrid',\n    },\n  }];\n}\n\nif (ai.error || !ai.startsAt) {\n  return [{\n    json: {\n      ok: false,\n      error: ai.error || 'לא מצאתי תאריך. שלחו למשל: יום שלישי בשעה 6 תור לרופא',\n      rawText,\n      chatId,\n      messageId,\n      source: 'hybrid',\n      ai,\n    },\n  }];\n}\n\nlet startsAt = new Date(ai.startsAt);\nif (Number.isNaN(startsAt.getTime())) {\n  return [{\n    json: {\n      ok: false,\n      error: 'תאריך לא תקין מה-AI',\n      rawText,\n      chatId,\n      messageId,\n      source: 'hybrid',\n      ai,\n    },\n  }];\n}\n\nconst hourMentioned = Boolean(ai.hourMentioned);\nconst durationMentioned = Boolean(ai.durationMentioned);\nlet durationMinutes = Number(ai.durationMinutes);\nif (!Number.isFinite(durationMinutes) || durationMinutes <= 0) {\n  durationMinutes = 60;\n}\nif (!durationMentioned) durationMinutes = durationMinutes || 60;\n\n// Default duration = 1 hour when not mentioned\nif (!durationMentioned) durationMinutes = 60;\n\nlet timeInferred = !hourMentioned;\nconst hint = (ai.timeOfDayHint || '').toLowerCase();\nconst forceMorning = hint === 'morning';\nconst forceEvening = hint === 'evening' || hint === 'afternoon' || hint === 'night';\n\n// Apply Israeli appointment heuristic: bare hours 1–7 → evening (+12)\n// unless morning was implied. Prefer rawHour from AI when present.\nlet hour = startsAt.getHours();\nconst rawHour = ai.rawHour == null ? null : Number(ai.rawHour);\nif (hourMentioned && rawHour != null && Number.isFinite(rawHour)) {\n  let h = rawHour;\n  if (!forceMorning && (forceEvening || h <= 7) && h > 0 && h < 12) {\n    h += 12;\n  }\n  startsAt = new Date(\n    startsAt.getFullYear(),\n    startsAt.getMonth(),\n    startsAt.getDate(),\n    h,\n    startsAt.getMinutes(),\n    0,\n    0,\n  );\n} else if (!hourMentioned) {\n  // Default time 09:00 Israel wall-clock on that day\n  startsAt = new Date(\n    startsAt.getFullYear(),\n    startsAt.getMonth(),\n    startsAt.getDate(),\n    9,\n    0,\n    0,\n    0,\n  );\n  timeInferred = true;\n} else if (!forceMorning && (forceEvening || hour <= 7) && hour > 0 && hour < 12) {\n  startsAt = new Date(startsAt.getTime() + 12 * 60 * 60 * 1000);\n}\n\nconst endsAt = new Date(startsAt.getTime() + durationMinutes * 60_000);\nlet title = String(ai.title || '').trim() || 'אירוע';\nif (title.length > 120) title = title.slice(0, 120);\n\nreturn [{\n  json: {\n    ok: true,\n    title,\n    startsAt: startsAt.toISOString(),\n    endsAt: endsAt.toISOString(),\n    durationMinutes,\n    timeInferred,\n    durationInferred: !durationMentioned,\n    confidence: ai.confidence ?? null,\n    rawText,\n    chatId,\n    messageId,\n    source: 'hybrid',\n    ai,\n  },\n}];\n"
+      }
     },
     {
+      "id": "17f0ea48-c53d-4ece-90e3-702b41a6ad8a",
+      "name": "Parse OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1000,
+        -40
+      ],
       "parameters": {
         "conditions": {
           "options": {
@@ -90,17 +134,17 @@
           "combinator": "and"
         },
         "options": {}
-      },
-      "id": "parse-ok",
-      "name": "Parse OK?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.2,
-      "position": [
-        760,
-        -40
-      ]
+      }
     },
     {
+      "id": "4966f66e-cf2b-4910-9f02-813b111b3d75",
+      "name": "Create Google Event",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [
+        1260,
+        -160
+      ],
       "parameters": {
         "calendar": {
           "__rl": true,
@@ -112,111 +156,141 @@
         "end": "={{ $json.endsAt }}",
         "additionalFields": {
           "summary": "={{ $json.title }}",
-          "description": "={{ 'נוצר מטלגרם:\\n' + $json.rawText }}",
+          "description": "={{ 'נוצר מטלגרם (AI+ולידציה):\\n' + $json.rawText }}",
           "useDefaultReminders": true
         }
       },
-      "id": "gcal-create",
-      "name": "Create Google Event",
-      "type": "n8n-nodes-base.googleCalendar",
-      "typeVersion": 1.3,
-      "position": [
-        1020,
-        -160
-      ],
       "credentials": {
         "googleCalendarOAuth2Api": {
-          "id": "REPLACE_WITH_GOOGLE_CREDENTIAL_ID",
+          "id": "iWYbkORwxUqISAzU",
           "name": "Google Calendar account"
         }
       }
     },
     {
+      "id": "c1d3845d-7819-44d3-a4b3-7a3dce8d480a",
+      "name": "Save to Life App",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1520,
+        -160
+      ],
       "parameters": {
-        "method": "POST",
-        "url": "https://grxumlgwgzmnnpxlgzah.supabase.co/rest/v1/calendar_events",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
+        "operation": "create",
+        "resource": "row",
+        "tableId": "calendar_events",
+        "useCustomSchema": true,
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
             {
-              "name": "apikey",
-              "value": "={{ $env.SUPABASE_ANON_KEY || $env.SUPABASE_SERVICE_ROLE_KEY }}"
+              "fieldId": "title",
+              "fieldValue": "={{ $('Validate & Defaults').item.json.title }}"
             },
             {
-              "name": "Authorization",
-              "value": "=Bearer {{ $env.SUPABASE_ANON_KEY || $env.SUPABASE_SERVICE_ROLE_KEY }}"
+              "fieldId": "description",
+              "fieldValue": "={{ 'נוצר מטלגרם (AI+ולידציה):\\n' + $('Validate & Defaults').item.json.rawText }}"
             },
             {
-              "name": "Content-Type",
-              "value": "application/json"
+              "fieldId": "starts_at",
+              "fieldValue": "={{ $('Validate & Defaults').item.json.startsAt }}"
             },
             {
-              "name": "Prefer",
-              "value": "return=representation"
+              "fieldId": "ends_at",
+              "fieldValue": "={{ $('Validate & Defaults').item.json.endsAt }}"
+            },
+            {
+              "fieldId": "source",
+              "fieldValue": "telegram"
+            },
+            {
+              "fieldId": "telegram_chat_id",
+              "fieldValue": "={{ String($('Validate & Defaults').item.json.chatId ?? '') }}"
+            },
+            {
+              "fieldId": "telegram_message_id",
+              "fieldValue": "={{ String($('Validate & Defaults').item.json.messageId ?? '') }}"
+            },
+            {
+              "fieldId": "google_event_id",
+              "fieldValue": "={{ $json.id || $json.iCalUID || null }}"
+            },
+            {
+              "fieldId": "google_calendar_id",
+              "fieldValue": "primary"
+            },
+            {
+              "fieldId": "raw_text",
+              "fieldValue": "={{ $('Validate & Defaults').item.json.rawText }}"
             }
           ]
-        },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={\n  \"title\": {{ JSON.stringify($('Parse Event').item.json.title) }},\n  \"description\": {{ JSON.stringify('נוצר מטלגרם:\\n' + $('Parse Event').item.json.rawText) }},\n  \"starts_at\": {{ JSON.stringify($('Parse Event').item.json.startsAt) }},\n  \"ends_at\": {{ JSON.stringify($('Parse Event').item.json.endsAt) }},\n  \"source\": \"telegram\",\n  \"telegram_chat_id\": {{ JSON.stringify(String($('Parse Event').item.json.chatId ?? '')) }},\n  \"telegram_message_id\": {{ JSON.stringify(String($('Parse Event').item.json.messageId ?? '')) }},\n  \"google_event_id\": {{ JSON.stringify($json.id || $json.iCalUID || null) }},\n  \"google_calendar_id\": \"primary\",\n  \"raw_text\": {{ JSON.stringify($('Parse Event').item.json.rawText) }}\n}",
-        "options": {}
-      },
-      "id": "supabase-insert",
-      "name": "Save to Life App",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        1280,
-        -160
-      ]
-    },
-    {
-      "parameters": {
-        "chatId": "={{ $('Parse Event').item.json.chatId }}",
-        "text": "=✅ נקבע ביומן\\n📌 {{ $('Parse Event').item.json.title }}\\n🗓 {{ $('Parse Event').item.json.startsAt }}\\n⏱ {{ $('Parse Event').item.json.durationMinutes }} דק׳{{ $('Parse Event').item.json.durationInferred ? ' (ברירת מחדל)' : '' }}{{ $('Parse Event').item.json.timeInferred ? '\\n⚠️ לא צוינה שעה — נקבע 09:00' : '' }}",
-        "additionalFields": {
-          "appendAttribution": false
         }
       },
-      "id": "tg-ok",
+      "credentials": {
+        "supabaseApi": {
+          "id": "fGBJf6fkxpbUEz0G",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "id": "dbbc14a0-e758-4c8d-b193-301f556b0813",
       "name": "Reply Success",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
       "position": [
-        1540,
+        1780,
         -160
       ],
-      "credentials": {
-        "telegramApi": {
-          "id": "REPLACE_WITH_TELEGRAM_CREDENTIAL_ID",
-          "name": "Telegram Bot"
-        }
-      }
-    },
-    {
       "parameters": {
-        "chatId": "={{ $json.chatId || $('Telegram Trigger').item.json.message.chat.id }}",
-        "text": "=❌ {{ $json.error || 'לא הצלחתי להבין את ההודעה' }}\\n\\nדוגמאות:\\n• יום שלישי הקרוב בשעה 6 תור לרופא\\n• 15/9 בשעה 10:30 פגישה\\n• מחר ב־18 ישיבה שעתיים\\n\\nברירת מחדל: משך שעה. שעה 1–7 בלי «בבוקר» = ערב (6→18:00).",
+        "chatId": "={{ $('Validate & Defaults').item.json.chatId }}",
+        "text": "=✅ נקבע ביומן\\n📌 {{ $('Validate & Defaults').item.json.title }}\\n🗓 {{ $('Validate & Defaults').item.json.startsAt }}\\n⏱ {{ $('Validate & Defaults').item.json.durationMinutes }} דק׳{{ $('Validate & Defaults').item.json.durationInferred ? ' (ברירת מחדל)' : '' }}{{ $('Validate & Defaults').item.json.timeInferred ? '\\n⚠️ לא צוינה שעה — נקבע 09:00' : '' }}",
         "additionalFields": {
           "appendAttribution": false
         }
       },
-      "id": "tg-err",
+      "credentials": {
+        "telegramApi": {
+          "id": "TFtFc5bYxuPg7Zwl",
+          "name": "Telegram account 2"
+        }
+      },
+      "webhookId": "5dcc32a1-ca26-40c9-b8a8-964f1d204c3a"
+    },
+    {
+      "id": "11113370-2970-471a-b258-8c99285a57df",
       "name": "Reply Error",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
       "position": [
-        1020,
+        1260,
         80
       ],
+      "parameters": {
+        "chatId": "={{ $json.chatId || $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "=❌ {{ $json.error || 'לא הצלחתי להבין את ההודעה' }}\\n\\nדוגמאות:\\n• יום שלישי הקרוב בשעה 6 תור לרופא\\n• מחר אחרי הצהריים פגישה עם רואה חשבון שעתיים\\n• 15/9 בשעה 10:30 בדיקה",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
       "credentials": {
         "telegramApi": {
-          "id": "REPLACE_WITH_TELEGRAM_CREDENTIAL_ID",
-          "name": "Telegram Bot"
+          "id": "TFtFc5bYxuPg7Zwl",
+          "name": "Telegram account 2"
         }
-      }
+      },
+      "webhookId": "51293927-ae9c-407f-86b2-e0c514fc8733"
     },
     {
+      "id": "4ccff2f0-5fdc-4f9c-be26-3f41d7149db4",
+      "name": "Reply Need Text",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        500,
+        160
+      ],
       "parameters": {
         "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
         "text": "שלחו טקסט חופשי עם יום/תאריך ושעה, למשל:\\nיום שלישי בשעה 6 תור לרופא",
@@ -224,20 +298,13 @@
           "appendAttribution": false
         }
       },
-      "id": "tg-empty",
-      "name": "Reply Need Text",
-      "type": "n8n-nodes-base.telegram",
-      "typeVersion": 1.2,
-      "position": [
-        520,
-        160
-      ],
       "credentials": {
         "telegramApi": {
-          "id": "REPLACE_WITH_TELEGRAM_CREDENTIAL_ID",
-          "name": "Telegram Bot"
+          "id": "TFtFc5bYxuPg7Zwl",
+          "name": "Telegram account 2"
         }
-      }
+      },
+      "webhookId": "bfff32e2-33ca-4eeb-b539-1d23009ed9e1"
     }
   ],
   "connections": {
@@ -256,7 +323,7 @@
       "main": [
         [
           {
-            "node": "Parse Event",
+            "node": "AI Extract Event",
             "type": "main",
             "index": 0
           }
@@ -270,7 +337,18 @@
         ]
       ]
     },
-    "Parse Event": {
+    "AI Extract Event": {
+      "main": [
+        [
+          {
+            "node": "Validate & Defaults",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate & Defaults": {
       "main": [
         [
           {
@@ -326,12 +404,5 @@
     "executionOrder": "v1",
     "timezone": "Asia/Jerusalem"
   },
-  "staticData": null,
-  "tags": [
-    {
-      "name": "life-app"
-    }
-  ],
-  "pinData": {},
   "active": false
 }
