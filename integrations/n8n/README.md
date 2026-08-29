@@ -1,47 +1,30 @@
-# n8n: טלגרם → Google Calendar → Life App (Hybrid AI)
+# n8n: טלגרם → Google Calendar → Life App (Hybrid + Voice)
 
-זרימה שמקבלת הודעת טקסט בבוט טלגרם, מנתחת עם **Gemini**, ואז עוברת **ולידציה + ברירות מחדל** בקוד — יוצרת אירוע ב־Google Calendar ושומרת ב־Supabase (`calendar_events`).
+זרימה שמקבלת **טקסט או הודעה קולית** בטלגרם, מתמללת (OpenAI), מנתחת עם **Gemini**, אוכפת ברירות מחדל, יוצרת אירוע ב־Google Calendar ושומרת ב־Supabase.
 
-## קבצים
-
-| קובץ | תפקיד |
-|------|--------|
-| `telegram-google-calendar.json` | Workflow לייבוא / mirror של מה שב־n8n Cloud |
-| `parse-event.js` | פרסר כללים (גיבוי / שימוש באפליקציה) |
-
-## זרימה (Hybrid)
+## זרימה
 
 ```
 Telegram Trigger
-  → Has Text?
-  → AI Extract Event (Gemini 2.5 Flash)  ← מבין ניסוח חופשי
-  → Validate & Defaults (Code)           ← אוכף כללים
-  → Parse OK?
-      ├─ Create Google Event
-      │    → Save to Life App (calendar_events)
-      │    → Reply Success
-      └─ Reply Error
+  → Input Type (Switch)
+      ├─ voice  → Get Voice File → Transcribe (OpenAI) → Wrap
+      ├─ audio  → Get Audio File → Transcribe (OpenAI) → Wrap
+      ├─ text   → Normalize Text
+      └─ other  → Reply Need Input
+  → Normalize Input → Has Content?
+  → AI Extract Event (Gemini)
+  → Validate & Defaults
+  → Create Google Event → Save to Life App → Reply Success
 ```
 
-## מה ה־AI עושה
-מחלץ JSON: `title`, `startsAt`, `durationMinutes`, `hourMentioned`, `rawHour`, `timeOfDayHint`…
+## Instance
+https://nir0544.app.n8n.cloud/workflow/54GpwjjBXsvlMQ61
 
-## מה הוולידציה אוכפת
-- משך ברירת מחדל: **60 דקות** אם לא צוין
-- שעה ברירת מחדל: **09:00** אם לא צוינה
-- שעות **1–7** בלי רמז לבוקר → ערב (+12), למשל 6 → 18:00
-- אם אין תאריך בכלל → שגיאה לטלגרם (בלי ליצור אירוע)
+## מה לשלוח לבוט
+- טקסט: `יום שלישי בשעה 6 תור לרופא`
+- **הקלטה קולית** עם אותו תוכן
 
-## Instance נוכחי
-- Workflow: `Telegram → Google Calendar + Life App`
-- URL: https://nir0544.app.n8n.cloud/workflow/54GpwjjBXsvlMQ61
-- Telegram: account 2 (לא בוט המשימות — כדי לא לשבור webhook)
-- Gemini / Google Calendar / Supabase: credentials קיימים ב־n8n
-
-## דוגמאות
-
-```
-יום שלישי הקרוב בשעה 6 תור לרופא
-מחר אחרי הצהריים פגישה עם רואה חשבון שעתיים
-15/9 בשעה 10:30 בדיקה
-```
+## ברירות מחדל (אחרי AI)
+- משך: שעה
+- בלי שעה: 09:00
+- שעות 1–7 בלי רמז לבוקר → ערב (6→18:00)
