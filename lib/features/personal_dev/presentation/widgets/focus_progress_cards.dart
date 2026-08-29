@@ -7,12 +7,12 @@ import '../../../../core/theme/app_theme.dart';
 class CurrentFocusCard extends StatelessWidget {
   const CurrentFocusCard({
     super.key,
-    required this.skill,
+    required this.primarySkill,
     this.secondarySkill,
     this.notes,
   });
 
-  final PdSkillConfig skill;
+  final PdSkillConfig primarySkill;
   final PdSkillConfig? secondarySkill;
   final String? notes;
 
@@ -47,29 +47,22 @@ class CurrentFocusCard extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-            Text(
-              skill.nameHe,
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              skill.descriptionHe,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppColors.muted,
-                  ),
+            const SizedBox(height: 16),
+            _FocusRow(
+              label: 'Primary Skill',
+              skill: primarySkill,
+              emphasized: true,
             ),
             if (secondarySkill != null) ...[
               const SizedBox(height: 12),
-              Text(
-                'משני: ${secondarySkill!.nameHe}',
-                style: const TextStyle(fontWeight: FontWeight.w600),
+              _FocusRow(
+                label: 'Secondary Skill',
+                skill: secondarySkill!,
+                emphasized: false,
               ),
             ],
             if (notes != null && notes!.isNotEmpty) ...[
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
               Text(
                 notes!,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -80,6 +73,51 @@ class CurrentFocusCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _FocusRow extends StatelessWidget {
+  const _FocusRow({
+    required this.label,
+    required this.skill,
+    required this.emphasized,
+  });
+
+  final String label;
+  final PdSkillConfig skill;
+  final bool emphasized;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                color: AppColors.muted,
+                fontWeight: FontWeight.w700,
+              ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          skill.nameHe,
+          style: emphasized
+              ? Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  )
+              : Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+        ),
+        Text(
+          skill.descriptionHe,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: AppColors.muted,
+              ),
+        ),
+      ],
     );
   }
 }
@@ -110,13 +148,26 @@ class ProgressStageCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              'Progress / Stage',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    skill.nameHe,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
                   ),
+                ),
+                Text(
+                  '${stageIndex + 1}/${skill.stages.length}',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.development,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
             Row(
               children: [
                 Expanded(
@@ -137,13 +188,6 @@ class ProgressStageCard extends StatelessWidget {
                             ),
                       ),
                     ],
-                  ),
-                ),
-                Text(
-                  '${stageIndex + 1}/${skill.stages.length}',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.development,
                   ),
                 ),
               ],

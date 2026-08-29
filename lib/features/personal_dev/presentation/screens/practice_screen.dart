@@ -3,15 +3,21 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/layout/app_layout.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../domain/config/pd_skill_config.dart';
 import '../../domain/config/pd_skill_registry.dart';
 import '../../domain/models/pd_enums.dart';
 import '../../domain/providers/personal_dev_providers.dart';
 
-/// Minimal practice / drill entry — logs as practice event type.
+/// Practice / drill entry — drills and behaviors come from skill config.
 class PracticeScreen extends ConsumerStatefulWidget {
-  const PracticeScreen({super.key, required this.skillId});
+  const PracticeScreen({
+    super.key,
+    required this.skillId,
+    this.drillId,
+  });
 
   final String skillId;
+  final String? drillId;
 
   @override
   ConsumerState<PracticeScreen> createState() => _PracticeScreenState();
@@ -20,7 +26,34 @@ class PracticeScreen extends ConsumerStatefulWidget {
 class _PracticeScreenState extends ConsumerState<PracticeScreen> {
   final _notesController = TextEditingController();
   final _checked = <String>{};
+  String? _selectedDrillId;
   bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedDrillId = widget.drillId;
+    _applyDrillDefaults();
+  }
+
+  void _applyDrillDefaults() {
+    final skill = pdSkillRegistry[widget.skillId];
+    if (skill == null || _selectedDrillId == null) return;
+    PdDrillConfig? drill;
+    for (final candidate in skill.drills) {
+      if (candidate.id == _selectedDrillId) {
+        drill = candidate;
+        break;
+      }
+    }
+    if (drill == null) return;
+    _checked
+      ..clear()
+      ..addAll(drill.suggestedBehaviorIds);
+    if (_notesController.text.isEmpty) {
+      _notesController.text = drill.descriptionHe;
+    }
+  }
 
   @override
   void dispose() {
@@ -35,6 +68,7 @@ class _PracticeScreenState extends ConsumerState<PracticeScreen> {
     final progress =
         await ref.read(pdSkillProgressProvider(widget.skillId).future);
     final stageId = progress?.currentStageId ?? skill.firstStage.id;
+    final drillId = _selectedDrillId;
 
     setState(() => _saving = true);
     try {
@@ -43,6 +77,7 @@ class _PracticeScreenState extends ConsumerState<PracticeScreen> {
             eventType: type,
             microBehaviors: _checked.toList(),
             stageAtEvent: stageId,
+            situationId: drillId,
             notes: _notesController.text.trim().isEmpty
                 ? null
                 : _notesController.text.trim(),
@@ -80,6 +115,8 @@ class _PracticeScreenState extends ConsumerState<PracticeScreen> {
     final stage = skill.stageById(stageId) ?? skill.firstStage;
     final stageBehaviors =
         skill.microBehaviors.where((b) => b.stageId == stageId).toList();
+    final behaviorSource =
+        stageBehaviors.isNotEmpty ? stageBehaviors : skill.microBehaviors;
 
     return Scaffold(
       appBar: AppBar(title: const Text('תרגול')),
@@ -97,19 +134,54 @@ class _PracticeScreenState extends ConsumerState<PracticeScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              'תרגל התנהגויות observable לשלב הנוכחי. '
-              'Phase 0 — כניסה מהירה לתרגול מבוקר.',
+              'Drills והתנהגויות מוגדרים ב-config של ה-Skill.',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: AppColors.muted,
                   ),
             ),
-            const SizedBox(height: 16),
-            if (stageBehaviors.isEmpty)
+            if (skill.drills.isNotEmpty) ...[
+              const SizedBox(height: 16),
               Text(
-                'אין micro-behaviors ייעודיים לשלב — סמן מה שרלוונטי:',
-                style: Theme.of(context).textTheme.bodySmall,
+                'Drills',
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
               ),
-            ...stageBehaviors.map((behavior) {
+              const SizedBox(height: 8),
+              ...skill.drills.map((drill) {
+                final selected = _selectedDrillId == drill.id;
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  color: selected
+                      ? AppColors.development.withValues(alpha: 0.06)
+                      : null,
+                  child: ListTile(
+                    title: Text(
+                      drill.nameHe,
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    subtitle: Text(drill.descriptionHe),
+                    trailing: selected
+                        ? Icon(Icons.check_circle, color: AppColors.development)
+                        : const Icon(Icons.radio_button_unchecked),
+                    onTap: () {
+                      setState(() {
+                        _selectedDrillId = drill.id;
+                        _applyDrillDefaults();
+                      });
+                    },
+                  ),
+                );
+              }),
+            ],
+            const SizedBox(height: 16),
+            Text(
+              'Micro-behaviors',
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+            ),
+            ...behaviorSource.map((behavior) {
               return CheckboxListTile(
                 value: _checked.contains(behavior.id),
                 onChanged: (v) {
@@ -150,10 +222,11 @@ class _PracticeScreenState extends ConsumerState<PracticeScreen> {
                   : const Text('שמור תרגול'),
             ),
             const SizedBox(height: 8),
-            OutlinedButton(
-              onPressed: _saving ? null : () => _save(PdEventType.drill),
-              child: const Text('Drill קצר'),
-            ),
+            if (_selectedDrillId != null)
+              OutlinedButton(
+                onPressed: _saving ? null : () => _save(PdEventType.drill),
+                child: const Text('שמור כ-Drill'),
+              ),
           ],
         ),
       ),

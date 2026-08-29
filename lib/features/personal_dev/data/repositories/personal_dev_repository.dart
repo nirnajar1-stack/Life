@@ -94,6 +94,7 @@ class PersonalDevRepository {
     PdContextLevel? difficulty,
     PdContextLevel? emotionalActivation,
     String? notes,
+    String? situationId,
   }) async {
     final when = occurredAt ?? DateTime.now();
     final skill = pdSkillRegistry[skillId];
@@ -121,6 +122,7 @@ class PersonalDevRepository {
           if (difficulty != null) 'difficulty': difficulty.dbValue,
           if (emotionalActivation != null)
             'emotional_activation': emotionalActivation.dbValue,
+          if (situationId != null) 'situation_id': situationId,
           if (notes != null) 'notes': notes,
         })
         .select()

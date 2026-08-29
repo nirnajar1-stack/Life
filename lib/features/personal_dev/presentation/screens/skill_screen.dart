@@ -4,6 +4,7 @@ import 'package:intl/intl.dart' hide TextDirection;
 
 import '../../../../core/layout/app_layout.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../domain/config/pd_skill_config.dart';
 import '../../domain/config/pd_skill_registry.dart';
 import '../../domain/providers/personal_dev_providers.dart';
 import 'event_log_screen.dart';
@@ -124,6 +125,63 @@ class SkillScreen extends ConsumerWidget {
                 child: const Text('העבר לשלב הבא'),
               ),
             ],
+            if (skill.drills.isNotEmpty) ...[
+              const SizedBox(height: 20),
+              Text(
+                'Drills',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+              ),
+              const SizedBox(height: 8),
+              ...skill.drills.map(
+                (drill) => Card(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  child: ListTile(
+                    title: Text(drill.nameHe),
+                    subtitle: Text(drill.descriptionHe),
+                    trailing: const Icon(Icons.play_arrow),
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => PracticeScreen(
+                          skillId: skillId,
+                          drillId: drill.id,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+            if (skill.realWorldMissions.isNotEmpty) ...[
+              const SizedBox(height: 20),
+              Text(
+                'Real World Missions',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+              ),
+              const SizedBox(height: 8),
+              ...skill.realWorldMissions.map(
+                (mission) => Card(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  child: ListTile(
+                    leading: Icon(Icons.flag_outlined, color: AppColors.development),
+                    title: Text(mission.labelHe),
+                    subtitle: mission.stageId != null
+                        ? Text(
+                            'שלב: ${skill.stageById(mission.stageId!)?.nameHe ?? mission.stageId}',
+                          )
+                        : null,
+                  ),
+                ),
+              ),
+            ],
+            if (skill.contextDimensions
+                .contains(PdContextDimension.relationshipType)) ...[
+              const SizedBox(height: 20),
+              _ContextAnalyticsSection(skillId: skillId),
+            ],
             const SizedBox(height: 20),
             Text(
               'שלבים',
@@ -203,6 +261,92 @@ class SkillScreen extends ConsumerWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _ContextAnalyticsSection extends ConsumerWidget {
+  const _ContextAnalyticsSection({required this.skillId});
+
+  final String skillId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final analyticsAsync = ref.watch(pdRelationshipAnalyticsProvider(skillId));
+
+    return analyticsAsync.when(
+      loading: () => const SizedBox(
+        height: 48,
+        child: Center(child: CircularProgressIndicator()),
+      ),
+      error: (e, _) => Text('Analytics: $e'),
+      data: (analytics) {
+        if (analytics.groups.isEmpty) {
+          return Text(
+            'ניתוח לפי סוג קשר יופיע אחרי רישום אירועים עם הקשר.',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: AppColors.muted,
+                ),
+          );
+        }
+        return Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'Analytics לפי סוג קשר',
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                ),
+                const SizedBox(height: 8),
+                _AnalyticsRow(
+                  label: 'Overall',
+                  value: '${analytics.overallPercent}',
+                ),
+                ...analytics.groups.map(
+                  (group) => _AnalyticsRow(
+                    label: group.label,
+                    value: '${group.avgScorePercent}',
+                    detail: '${group.eventCount} אירועים',
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _AnalyticsRow extends StatelessWidget {
+  const _AnalyticsRow({
+    required this.label,
+    required this.value,
+    this.detail,
+  });
+
+  final String label;
+  final String value;
+  final String? detail;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        children: [
+          Expanded(child: Text(label, style: const TextStyle(fontWeight: FontWeight.w600))),
+          Text('$value%', style: TextStyle(fontWeight: FontWeight.w800, color: AppColors.development)),
+          if (detail != null) ...[
+            const SizedBox(width: 8),
+            Text(detail!, style: Theme.of(context).textTheme.bodySmall),
+          ],
+        ],
       ),
     );
   }

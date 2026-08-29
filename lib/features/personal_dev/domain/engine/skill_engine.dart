@@ -104,3 +104,77 @@ int computePerformanceScore({
   if (rate >= 0.25) return 2;
   return 1;
 }
+
+/// Rich event snapshot for generic context analytics (not stage evaluation).
+class PdContextEventSnapshot {
+  const PdContextEventSnapshot({
+    this.relationshipType,
+    this.powerGap,
+    this.performanceScore,
+  });
+
+  final String? relationshipType;
+  final String? powerGap;
+  final int? performanceScore;
+}
+
+class PdContextScoreGroup {
+  const PdContextScoreGroup({
+    required this.label,
+    required this.eventCount,
+    required this.avgScorePercent,
+  });
+
+  final String label;
+  final int eventCount;
+  final int avgScorePercent;
+}
+
+/// Groups scored events by relationship type for breakdown views (e.g. Peers vs Senior Leaders).
+PdContextAnalytics computeRelationshipTypeAnalytics(
+  List<PdContextEventSnapshot> events,
+) {
+  final scored =
+      events.where((e) => e.performanceScore != null).toList();
+  if (scored.isEmpty) {
+    return const PdContextAnalytics(overallPercent: 0, groups: []);
+  }
+
+  final overall = _avgScorePercent(scored.map((e) => e.performanceScore!).toList());
+  final buckets = <String, List<int>>{};
+  for (final event in scored) {
+    final key = (event.relationshipType?.trim().isEmpty ?? true)
+        ? 'לא צוין'
+        : event.relationshipType!.trim();
+    buckets.putIfAbsent(key, () => []).add(event.performanceScore!);
+  }
+
+  final groups = buckets.entries
+      .map(
+        (entry) => PdContextScoreGroup(
+          label: entry.key,
+          eventCount: entry.value.length,
+          avgScorePercent: _avgScorePercent(entry.value),
+        ),
+      )
+      .toList()
+    ..sort((a, b) => b.avgScorePercent.compareTo(a.avgScorePercent));
+
+  return PdContextAnalytics(overallPercent: overall, groups: groups);
+}
+
+class PdContextAnalytics {
+  const PdContextAnalytics({
+    required this.overallPercent,
+    required this.groups,
+  });
+
+  final int overallPercent;
+  final List<PdContextScoreGroup> groups;
+}
+
+int _avgScorePercent(List<int> scores) {
+  if (scores.isEmpty) return 0;
+  final avg = scores.reduce((a, b) => a + b) / scores.length;
+  return ((avg / 5) * 100).round();
+}

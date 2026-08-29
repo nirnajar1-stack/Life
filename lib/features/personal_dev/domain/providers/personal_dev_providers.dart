@@ -54,6 +54,22 @@ final pdStageEvaluationProvider =
   );
 });
 
+final pdRelationshipAnalyticsProvider =
+    FutureProvider.family<PdContextAnalytics, String>((ref, skillId) async {
+  final events =
+      await ref.watch(personalDevRepositoryProvider).fetchEventsForSkill(skillId);
+  final snapshots = events
+      .map(
+        (r) => PdContextEventSnapshot(
+          relationshipType: r.event.relationshipType,
+          powerGap: r.event.powerGap?.dbValue,
+          performanceScore: r.eventSkill.performanceScore,
+        ),
+      )
+      .toList();
+  return computeRelationshipTypeAnalytics(snapshots);
+});
+
 class PersonalDevController extends AsyncNotifier<void> {
   @override
   Future<void> build() async {}
@@ -73,6 +89,7 @@ class PersonalDevController extends AsyncNotifier<void> {
     PdContextLevel? difficulty,
     PdContextLevel? emotionalActivation,
     String? notes,
+    String? situationId,
   }) async {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
@@ -89,6 +106,7 @@ class PersonalDevController extends AsyncNotifier<void> {
         difficulty: difficulty,
         emotionalActivation: emotionalActivation,
         notes: notes,
+        situationId: situationId,
       );
       await _repo.incrementEventsInStage(skillId);
       ref.invalidate(pdEventsForSkillProvider(skillId));

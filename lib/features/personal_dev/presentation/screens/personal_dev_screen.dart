@@ -4,14 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/layout/app_layout.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/app_section_header.dart';
-import '../../domain/config/pd_skill_config.dart';
 import '../../domain/config/pd_skill_registry.dart';
 import '../../domain/providers/personal_dev_providers.dart';
 import '../widgets/development_map_card.dart';
 import '../widgets/focus_progress_cards.dart';
+import '../widgets/skill_list_tile.dart';
 import 'event_log_screen.dart';
 import 'practice_screen.dart';
-import 'skill_screen.dart';
 
 class PersonalDevScreen extends ConsumerWidget {
   const PersonalDevScreen({super.key});
@@ -19,12 +18,12 @@ class PersonalDevScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final focusAsync = ref.watch(pdFocusCycleProvider);
-    final primarySkillId =
-        focusAsync.valueOrNull?.primarySkillId ?? selfRegulationSkill.id;
-    final skill = pdSkillRegistry[primarySkillId] ?? selfRegulationSkill;
-    final progressAsync = ref.watch(pdSkillProgressProvider(primarySkillId));
-    final evaluationAsync =
-        ref.watch(pdStageEvaluationProvider(primarySkillId));
+    final focus = focusAsync.valueOrNull;
+    final primarySkillId = focus?.primarySkillId ?? allPdSkills.first.id;
+    final primarySkill = pdSkillRegistry[primarySkillId] ?? allPdSkills.first;
+    final secondarySkill = focus?.secondarySkillId != null
+        ? pdSkillRegistry[focus!.secondarySkillId!]
+        : null;
 
     return Scaffold(
       appBar: AppBar(
@@ -37,46 +36,41 @@ class PersonalDevScreen extends ConsumerWidget {
           padding: AppLayout.listPadding,
           children: [
             CurrentFocusCard(
-              skill: skill,
-              secondarySkill: focusAsync.valueOrNull?.secondarySkillId != null
-                  ? pdSkillRegistry[
-                      focusAsync.valueOrNull!.secondarySkillId!]
-                  : null,
-              notes: focusAsync.valueOrNull?.notes,
+              primarySkill: primarySkill,
+              secondarySkill: secondarySkill,
+              notes: focus?.notes,
             ),
             const SizedBox(height: 16),
-            ProgressStageCard(
-              skill: skill,
-              currentStageId: progressAsync.valueOrNull?.currentStageId ??
-                  skill.firstStage.id,
-              evaluation: evaluationAsync.valueOrNull,
+            AppSectionHeader(title: 'Progress / Stage'),
+            ...allPdSkills.map(
+              (skill) => Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: SkillProgressCard(skillId: skill.id),
+              ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 4),
             AppSectionHeader(title: 'Skills'),
-            _SkillTile(
-              skill: skill,
-              stageId: progressAsync.valueOrNull?.currentStageId ??
-                  skill.firstStage.id,
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => SkillScreen(skillId: skill.id),
-                ),
+            ...allPdSkills.map(
+              (skill) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: SkillListTile(skillId: skill.id),
               ),
             ),
             const SizedBox(height: 16),
             DevelopmentMapCard(
               skills: allPdSkills,
-              highlightLayer: skill.layer,
+              highlightLayer: primarySkill.layer,
             ),
             const SizedBox(height: 16),
-            AppSectionHeader(title: 'פעולות'),
+            AppSectionHeader(title: 'פעולות — Primary Focus'),
             Row(
               children: [
                 Expanded(
                   child: FilledButton.icon(
                     onPressed: () => Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder: (_) => EventLogScreen(skillId: skill.id),
+                        builder: (_) =>
+                            EventLogScreen(skillId: primarySkill.id),
                       ),
                     ),
                     icon: const Icon(Icons.edit_note_outlined),
@@ -91,7 +85,8 @@ class PersonalDevScreen extends ConsumerWidget {
                   child: OutlinedButton.icon(
                     onPressed: () => Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder: (_) => PracticeScreen(skillId: skill.id),
+                        builder: (_) =>
+                            PracticeScreen(skillId: primarySkill.id),
                       ),
                     ),
                     icon: const Icon(Icons.self_improvement_outlined),
@@ -107,31 +102,26 @@ class PersonalDevScreen extends ConsumerWidget {
   }
 }
 
-class _SkillTile extends StatelessWidget {
-  const _SkillTile({
-    required this.skill,
-    required this.stageId,
-    required this.onTap,
-  });
+/// Compact progress card driven by skillId — works for any registered skill.
+class SkillProgressCard extends ConsumerWidget {
+  const SkillProgressCard({super.key, required this.skillId});
 
-  final PdSkillConfig skill;
-  final String stageId;
-  final VoidCallback onTap;
+  final String skillId;
 
   @override
-  Widget build(BuildContext context) {
-    final stage = skill.stageById(stageId) ?? skill.firstStage;
-    return Card(
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: AppColors.development.withValues(alpha: 0.15),
-          child: Icon(Icons.psychology_outlined, color: AppColors.development),
-        ),
-        title: Text(skill.nameHe, style: const TextStyle(fontWeight: FontWeight.w700)),
-        subtitle: Text('שלב: ${stage.nameHe}'),
-        trailing: const Icon(Icons.chevron_left),
-        onTap: onTap,
-      ),
+  Widget build(BuildContext context, WidgetRef ref) {
+    final skill = pdSkillRegistry[skillId];
+    if (skill == null) return const SizedBox.shrink();
+
+    final progressAsync = ref.watch(pdSkillProgressProvider(skillId));
+    final evaluationAsync = ref.watch(pdStageEvaluationProvider(skillId));
+    final stageId =
+        progressAsync.valueOrNull?.currentStageId ?? skill.firstStage.id;
+
+    return ProgressStageCard(
+      skill: skill,
+      currentStageId: stageId,
+      evaluation: evaluationAsync.valueOrNull,
     );
   }
 }

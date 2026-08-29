@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/layout/app_layout.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../domain/config/pd_skill_config.dart';
 import '../../domain/config/pd_skill_registry.dart';
 import '../../domain/models/pd_enums.dart';
 import '../../domain/providers/personal_dev_providers.dart';
@@ -119,38 +120,85 @@ class _EventLogScreenState extends ConsumerState<EventLogScreen> {
               }).toList(),
             ),
             const SizedBox(height: 16),
+            if (skill.contextDimensions.isNotEmpty) ...[
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.development.withValues(alpha: 0.06),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: AppColors.development.withValues(alpha: 0.2),
+                  ),
+                ),
+                child: Text(
+                  'הקשר חשוב לניתוח: ${skill.contextDimensions.map((d) => d.labelHe).join(' · ')}',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
             Text('הקשר', style: _labelStyle(context)),
+            if (skill.relationshipTypeSuggestions.isNotEmpty) ...[
+              Wrap(
+                spacing: 6,
+                runSpacing: 4,
+                children: skill.relationshipTypeSuggestions.map((suggestion) {
+                  return ActionChip(
+                    label: Text(suggestion),
+                    onPressed: () {
+                      _relationshipController.text = suggestion;
+                    },
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 8),
+            ],
             TextField(
               controller: _relationshipController,
               decoration: const InputDecoration(
-                hintText: 'סוג קשר (למשל: מנהל, בן/בת זוג)',
+                hintText: 'סוג קשר (למשל: עמיתים, מנהל בכיר)',
               ),
             ),
             const SizedBox(height: 12),
-            _LevelPicker(
-              label: 'פער כוח',
-              value: _powerGap,
-              onChanged: (v) => setState(() => _powerGap = v),
-            ),
-            _SafetyPicker(
-              value: _relationshipSafety,
-              onChanged: (v) => setState(() => _relationshipSafety = v),
-            ),
-            _LevelPicker(
-              label: 'חשיבות תוצאה',
-              value: _outcomeImportance,
-              onChanged: (v) => setState(() => _outcomeImportance = v),
-            ),
-            _LevelPicker(
-              label: 'קושי',
-              value: _difficulty,
-              onChanged: (v) => setState(() => _difficulty = v),
-            ),
-            _LevelPicker(
-              label: 'הפעלה רגשית',
-              value: _emotionalActivation,
-              onChanged: (v) => setState(() => _emotionalActivation = v),
-            ),
+            if (skill.contextDimensions.isEmpty ||
+                skill.contextDimensions.contains(PdContextDimension.powerGap))
+              _LevelPicker(
+                label: 'פער כוח',
+                value: _powerGap,
+                onChanged: (v) => setState(() => _powerGap = v),
+              ),
+            if (skill.contextDimensions.isEmpty ||
+                skill.contextDimensions
+                    .contains(PdContextDimension.relationshipSafety))
+              _SafetyPicker(
+                value: _relationshipSafety,
+                onChanged: (v) => setState(() => _relationshipSafety = v),
+              ),
+            if (skill.contextDimensions.isEmpty ||
+                skill.contextDimensions
+                    .contains(PdContextDimension.outcomeImportance))
+              _LevelPicker(
+                label: 'חשיבות תוצאה',
+                value: _outcomeImportance,
+                onChanged: (v) => setState(() => _outcomeImportance = v),
+              ),
+            if (skill.contextDimensions.isEmpty ||
+                skill.contextDimensions.contains(PdContextDimension.difficulty))
+              _LevelPicker(
+                label: 'קושי',
+                value: _difficulty,
+                onChanged: (v) => setState(() => _difficulty = v),
+              ),
+            if (skill.contextDimensions.isEmpty ||
+                skill.contextDimensions
+                    .contains(PdContextDimension.emotionalActivation))
+              _LevelPicker(
+                label: 'הפעלה רגשית',
+                value: _emotionalActivation,
+                onChanged: (v) => setState(() => _emotionalActivation = v),
+              ),
             const SizedBox(height: 16),
             Text('Micro-behaviors ($stageId)', style: _labelStyle(context)),
             const SizedBox(height: 8),

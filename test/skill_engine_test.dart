@@ -85,4 +85,81 @@ void main() {
       isNull,
     );
   });
+
+  group('assertiveness (config-only skill)', () {
+    test('registry includes assertiveness with five stages', () {
+      expect(pdSkillRegistry.containsKey('assertiveness'), isTrue);
+      expect(assertivenessSkill.stages.length, 5);
+      expect(assertivenessSkill.drills.length, greaterThanOrEqualTo(2));
+      expect(assertivenessSkill.realWorldMissions.length, 5);
+    });
+
+    test('uses same scoring engine with different stage ids', () {
+      expect(
+        computePerformanceScore(
+          skill: assertivenessSkill,
+          stageId: 'low_stakes_practice',
+          checkedBehaviorIds: const [
+            'made_clear_request',
+            'avoided_unnecessary_apology',
+          ],
+        ),
+        greaterThanOrEqualTo(4),
+      );
+    });
+
+    test('stage evaluation advances to low stakes practice', () {
+      final eval = evaluateStageProgress(
+        skill: assertivenessSkill,
+        currentStageId: 'awareness',
+        events: [
+          PdEventSnapshot(
+            skillId: assertivenessSkill.id,
+            stageAtEvent: 'awareness',
+            microBehaviors: const ['expressed_actual_opinion'],
+            performanceScore: 4,
+            occurredAt: DateTime(2026, 8, 29),
+          ),
+          PdEventSnapshot(
+            skillId: assertivenessSkill.id,
+            stageAtEvent: 'awareness',
+            microBehaviors: const ['expressed_actual_opinion'],
+            performanceScore: 4,
+            occurredAt: DateTime(2026, 8, 30),
+          ),
+          PdEventSnapshot(
+            skillId: assertivenessSkill.id,
+            stageAtEvent: 'awareness',
+            microBehaviors: const ['expressed_actual_opinion'],
+            performanceScore: 4,
+            occurredAt: DateTime(2026, 8, 31),
+          ),
+        ],
+      );
+
+      expect(eval.nextStageId, 'low_stakes_practice');
+    });
+
+    test('relationship analytics groups scores by context', () {
+      final analytics = computeRelationshipTypeAnalytics(const [
+        PdContextEventSnapshot(
+          relationshipType: 'עמיתים',
+          performanceScore: 5,
+        ),
+        PdContextEventSnapshot(
+          relationshipType: 'עמיתים',
+          performanceScore: 4,
+        ),
+        PdContextEventSnapshot(
+          relationshipType: 'מנהל בכיר',
+          performanceScore: 2,
+        ),
+      ]);
+
+      expect(analytics.overallPercent, 73);
+      expect(analytics.groups.length, 2);
+      expect(analytics.groups.first.label, 'עמיתים');
+      expect(analytics.groups.first.avgScorePercent, 90);
+    });
+  });
 }
