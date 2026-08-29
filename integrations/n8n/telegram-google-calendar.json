@@ -2,7 +2,7 @@
   "name": "Telegram → Google Calendar + Life App",
   "nodes": [
     {
-      "id": "00791f33-9f5e-47fd-bddc-764008b70f2a",
+      "id": "20816c10-c58b-47dc-a1ec-5b95709f3152",
       "name": "Telegram Trigger",
       "type": "n8n-nodes-base.telegramTrigger",
       "typeVersion": 1.2,
@@ -10,7 +10,7 @@
         0,
         0
       ],
-      "webhookId": "152308cd-8b7e-417b-8b11-88f237d69207",
+      "webhookId": "94baad44-a199-4cba-ae78-e2415e7f702f",
       "parameters": {
         "updates": [
           "message"
@@ -25,12 +25,241 @@
       }
     },
     {
-      "id": "33e5488d-d081-4f17-97fa-e9fd69072b6d",
-      "name": "Has Text?",
+      "id": "c4e5737b-a756-44e3-8c7c-4b987b8d496c",
+      "name": "Input Type",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        260,
+        0
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "voice",
+                    "leftValue": "={{ $json.message.voice.file_id }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "string",
+                      "operation": "notEmpty",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "voice"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "audio",
+                    "leftValue": "={{ $json.message.audio.file_id }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "string",
+                      "operation": "notEmpty",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "audio"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "text",
+                    "leftValue": "={{ $json.message.text }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "string",
+                      "operation": "notEmpty",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "text"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      }
+    },
+    {
+      "id": "fb59e802-56fb-4d86-b5de-7cabd3bcf30b",
+      "name": "Get Voice File",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        520,
+        -220
+      ],
+      "webhookId": "8006d51d-585a-483b-8d7e-e624b06b1321",
+      "parameters": {
+        "resource": "file",
+        "fileId": "={{ $json.message.voice.file_id }}",
+        "additionalFields": {
+          "download": true
+        }
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "TFtFc5bYxuPg7Zwl",
+          "name": "Telegram account 2"
+        }
+      }
+    },
+    {
+      "id": "8ec8e571-5d4b-4fae-a402-1999a8ca2bb1",
+      "name": "Get Audio File",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        520,
+        -40
+      ],
+      "webhookId": "12554a1a-b132-44c5-967b-caf9d9bf38ff",
+      "parameters": {
+        "resource": "file",
+        "fileId": "={{ $json.message.audio.file_id }}",
+        "additionalFields": {
+          "download": true
+        }
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "TFtFc5bYxuPg7Zwl",
+          "name": "Telegram account 2"
+        }
+      }
+    },
+    {
+      "id": "e4a34d1a-e74f-434d-8006-3599523bf80b",
+      "name": "Transcribe Voice",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.3,
+      "position": [
+        780,
+        -220
+      ],
+      "parameters": {
+        "resource": "audio",
+        "operation": "transcribe",
+        "options": {}
+      },
+      "credentials": {
+        "openAiApi": {
+          "id": "eQ2gDptuue7HCeWT",
+          "name": "OpenAI account"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000
+    },
+    {
+      "id": "02ed94f6-b9be-4fef-8062-b166e002c899",
+      "name": "Transcribe Audio",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.3,
+      "position": [
+        780,
+        -40
+      ],
+      "parameters": {
+        "resource": "audio",
+        "operation": "transcribe",
+        "options": {}
+      },
+      "credentials": {
+        "openAiApi": {
+          "id": "eQ2gDptuue7HCeWT",
+          "name": "OpenAI account"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000
+    },
+    {
+      "id": "88224221-3a09-4af3-88fc-7aaac85efa6c",
+      "name": "Wrap Transcription",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1040,
+        -140
+      ],
+      "parameters": {
+        "jsCode": "\nconst tg = $('Telegram Trigger').first().json;\nconst msg = tg.message || {};\nconst text = String($input.first().json.text || '').trim();\nif (!text) {\n  return [{\n    json: {\n      message: {\n        text: '',\n        chat: msg.chat,\n        message_id: msg.message_id,\n      },\n      _emptyTranscript: true,\n    },\n  }];\n}\nreturn [{\n  json: {\n    message: {\n      text,\n      chat: msg.chat,\n      message_id: msg.message_id,\n    },\n    transcribed: true,\n  },\n}];\n"
+      }
+    },
+    {
+      "id": "e563f93a-c245-490c-9c95-743ff31a5ac5",
+      "name": "Normalize Text",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        520,
+        160
+      ],
+      "parameters": {
+        "jsCode": "\nconst tg = $input.first().json;\nconst msg = tg.message || {};\nreturn [{\n  json: {\n    message: {\n      text: msg.text || '',\n      chat: msg.chat,\n      message_id: msg.message_id,\n    },\n    transcribed: false,\n  },\n}];\n"
+      }
+    },
+    {
+      "id": "b0f4f9d7-12ff-4bee-b204-370cbe7e95a6",
+      "name": "Normalize Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1260,
+        0
+      ],
+      "parameters": {
+        "jsCode": "\nconst item = $input.first().json;\nconst text = String(item.message?.text || item.text || '').trim();\nconst tg = $('Telegram Trigger').first().json.message || {};\nif (!text) {\n  return [{\n    json: {\n      message: { text: '', chat: tg.chat, message_id: tg.message_id },\n      empty: true,\n    },\n  }];\n}\nreturn [{\n  json: {\n    message: {\n      text,\n      chat: item.message?.chat || tg.chat,\n      message_id: item.message?.message_id || tg.message_id,\n    },\n    empty: false,\n    transcribed: Boolean(item.transcribed),\n  },\n}];\n"
+      }
+    },
+    {
+      "id": "48b7cd16-e90a-49f9-8246-a5b58822ac19",
+      "name": "Has Content?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        240,
+        1480,
         0
       ],
       "parameters": {
@@ -42,7 +271,7 @@
           },
           "conditions": [
             {
-              "id": "has-text",
+              "id": "has",
               "leftValue": "={{ $json.message.text }}",
               "rightValue": "",
               "operator": {
@@ -57,13 +286,13 @@
       }
     },
     {
-      "id": "92195b14-7fd1-4d7e-bd83-8612cfaf72ef",
+      "id": "0e836991-59b4-4499-bb70-488005816c9f",
       "name": "AI Extract Event",
       "type": "@n8n/n8n-nodes-langchain.googleGemini",
       "typeVersion": 1.2,
       "position": [
-        500,
-        -40
+        1720,
+        -80
       ],
       "parameters": {
         "modelId": {
@@ -75,7 +304,7 @@
         "messages": {
           "values": [
             {
-              "content": "=אתה מנתח הודעות טלגרם לאירועי יומן בעברית/אנגלית.\nהתאריך והשעה עכשיו (ישראל): {{ $now.setZone('Asia/Jerusalem').toFormat(\"yyyy-MM-dd'T'HH:mm:ssZZ\") }}.\n\nהחזר אך ורק אובייקט JSON אחד תקין, בלי טקסט נלווה ובלי ```.\n\nמבנה:\n{\n  \"title\": \"כותרת קצרה של האירוע\",\n  \"startsAt\": \"YYYY-MM-ddTHH:mm:ss+03:00\",\n  \"durationMinutes\": 60,\n  \"hourMentioned\": true,\n  \"durationMentioned\": false,\n  \"rawHour\": 6,\n  \"timeOfDayHint\": \"evening\",\n  \"confidence\": 0.9,\n  \"error\": null\n}\n\nכללים:\n1. title — נושא האירוע בלבד (בלי תאריך/שעה), עד 120 תווים. אם חסר: \"אירוע\".\n2. startsAt — תאריך+שעה באיזור ישראל. יום בשבוע = המופע הקרוב. \"הקרוב\" = הקרוב בעתיד.\n3. durationMinutes — אם צוין משך (שעתיים/45 דקות) השתמש בו וסמן durationMentioned=true; אחרת 60 ו-false.\n4. hourMentioned — true רק אם צוינה שעה במפורש.\n5. rawHour — השעה כפי שנכתבה (1–23) לפני המרות, או null.\n6. timeOfDayHint — \"morning\" אם נאמר בבוקר; \"evening\" אם נאמר בערב/אחה״צ/בלילה; אחרת null.\n7. אם אין תאריך/יום בכלל: error=\"לא מצאתי תאריך\", startsAt=null, confidence=0.\n8. אם אין שעה: startsAt ב-09:00, hourMentioned=false.\n9. אל תמציא פרטים שלא נרמזו.\n\nהודעה:\n{{ $json.message.text }}\n"
+              "content": "=אתה מנתח הודעות טלגרם (טקסט או תמלול קולי) לאירועי יומן בעברית/אנגלית.\nהתאריך והשעה עכשיו (ישראל): {{ $now.setZone('Asia/Jerusalem').toFormat(\"yyyy-MM-dd'T'HH:mm:ssZZ\") }}.\n\nהחזר אך ורק אובייקט JSON אחד תקין, בלי טקסט נלווה ובלי ```.\n\nמבנה:\n{\n  \"title\": \"כותרת קצרה של האירוע\",\n  \"startsAt\": \"YYYY-MM-ddTHH:mm:ss+03:00\",\n  \"durationMinutes\": 60,\n  \"hourMentioned\": true,\n  \"durationMentioned\": false,\n  \"rawHour\": 6,\n  \"timeOfDayHint\": \"evening\",\n  \"confidence\": 0.9,\n  \"error\": null\n}\n\nכללים:\n1. title — נושא האירוע בלבד (בלי תאריך/שעה), עד 120 תווים. אם חסר: \"אירוע\".\n2. startsAt — תאריך+שעה באיזור ישראל. יום בשבוע = המופע הקרוב.\n3. durationMinutes — אם צוין משך השתמש בו וסמן durationMentioned=true; אחרת 60 ו-false.\n4. hourMentioned — true רק אם צוינה שעה במפורש.\n5. rawHour — השעה כפי שנאמרה (1–23) לפני המרות, או null.\n6. timeOfDayHint — \"morning\" / \"evening\" / null לפי רמזים (בבוקר/בערב/אחה״צ).\n7. אם אין תאריך/יום: error=\"לא מצאתי תאריך\", startsAt=null.\n8. אם אין שעה: startsAt ב-09:00, hourMentioned=false.\n9. אל תמציא פרטים שלא נרמזו. תמלול קולי עלול להיות מעוגל — נחש סבירות גבוהה לתאריך/שעה אם נאמרו בבירור.\n\nהודעה / תמלול:\n{{ $json.message.text }}\n"
             }
           ]
         },
@@ -91,26 +320,26 @@
       }
     },
     {
-      "id": "d70fe89f-9e1c-4f4d-af91-5201cb751a28",
+      "id": "4725e4b3-b0e8-4c1f-8fbb-73c76ed8d806",
       "name": "Validate & Defaults",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        760,
-        -40
+        1960,
+        -80
       ],
       "parameters": {
-        "jsCode": "\nconst trigger = $('Telegram Trigger').first().json;\nconst msg = trigger.message || {};\nconst rawText = msg.text || '';\nconst chatId = msg.chat?.id;\nconst messageId = msg.message_id;\n\nconst inputItem = $input.first();\nlet rawModel = inputItem.json.content?.parts?.[0]?.text\n  || inputItem.json.text\n  || inputItem.json.output\n  || inputItem.json;\nif (typeof rawModel === 'object' && rawModel !== null) {\n  // jsonOutput mode may already parse\n  if (rawModel.title !== undefined || rawModel.startsAt !== undefined || rawModel.error !== undefined) {\n    rawModel = JSON.stringify(rawModel);\n  } else if (rawModel.content?.parts?.[0]?.text) {\n    rawModel = rawModel.content.parts[0].text;\n  } else {\n    rawModel = JSON.stringify(rawModel);\n  }\n}\n\nlet clean = String(rawModel || '').replace(/```json|```/g, '').trim();\nlet ai = null;\ntry {\n  ai = JSON.parse(clean);\n  if (Array.isArray(ai)) ai = ai[0] || {};\n} catch (e) {\n  return [{\n    json: {\n      ok: false,\n      error: 'AI החזיר JSON לא תקין: ' + e.message,\n      rawText,\n      chatId,\n      messageId,\n      source: 'hybrid',\n    },\n  }];\n}\n\nif (ai.error || !ai.startsAt) {\n  return [{\n    json: {\n      ok: false,\n      error: ai.error || 'לא מצאתי תאריך. שלחו למשל: יום שלישי בשעה 6 תור לרופא',\n      rawText,\n      chatId,\n      messageId,\n      source: 'hybrid',\n      ai,\n    },\n  }];\n}\n\nlet startsAt = new Date(ai.startsAt);\nif (Number.isNaN(startsAt.getTime())) {\n  return [{\n    json: {\n      ok: false,\n      error: 'תאריך לא תקין מה-AI',\n      rawText,\n      chatId,\n      messageId,\n      source: 'hybrid',\n      ai,\n    },\n  }];\n}\n\nconst hourMentioned = Boolean(ai.hourMentioned);\nconst durationMentioned = Boolean(ai.durationMentioned);\nlet durationMinutes = Number(ai.durationMinutes);\nif (!Number.isFinite(durationMinutes) || durationMinutes <= 0) {\n  durationMinutes = 60;\n}\nif (!durationMentioned) durationMinutes = durationMinutes || 60;\n\n// Default duration = 1 hour when not mentioned\nif (!durationMentioned) durationMinutes = 60;\n\nlet timeInferred = !hourMentioned;\nconst hint = (ai.timeOfDayHint || '').toLowerCase();\nconst forceMorning = hint === 'morning';\nconst forceEvening = hint === 'evening' || hint === 'afternoon' || hint === 'night';\n\n// Apply Israeli appointment heuristic: bare hours 1–7 → evening (+12)\n// unless morning was implied. Prefer rawHour from AI when present.\nlet hour = startsAt.getHours();\nconst rawHour = ai.rawHour == null ? null : Number(ai.rawHour);\nif (hourMentioned && rawHour != null && Number.isFinite(rawHour)) {\n  let h = rawHour;\n  if (!forceMorning && (forceEvening || h <= 7) && h > 0 && h < 12) {\n    h += 12;\n  }\n  startsAt = new Date(\n    startsAt.getFullYear(),\n    startsAt.getMonth(),\n    startsAt.getDate(),\n    h,\n    startsAt.getMinutes(),\n    0,\n    0,\n  );\n} else if (!hourMentioned) {\n  // Default time 09:00 Israel wall-clock on that day\n  startsAt = new Date(\n    startsAt.getFullYear(),\n    startsAt.getMonth(),\n    startsAt.getDate(),\n    9,\n    0,\n    0,\n    0,\n  );\n  timeInferred = true;\n} else if (!forceMorning && (forceEvening || hour <= 7) && hour > 0 && hour < 12) {\n  startsAt = new Date(startsAt.getTime() + 12 * 60 * 60 * 1000);\n}\n\nconst endsAt = new Date(startsAt.getTime() + durationMinutes * 60_000);\nlet title = String(ai.title || '').trim() || 'אירוע';\nif (title.length > 120) title = title.slice(0, 120);\n\nreturn [{\n  json: {\n    ok: true,\n    title,\n    startsAt: startsAt.toISOString(),\n    endsAt: endsAt.toISOString(),\n    durationMinutes,\n    timeInferred,\n    durationInferred: !durationMentioned,\n    confidence: ai.confidence ?? null,\n    rawText,\n    chatId,\n    messageId,\n    source: 'hybrid',\n    ai,\n  },\n}];\n"
+        "jsCode": "\nconst trigger = $('Telegram Trigger').first().json;\nconst msg = trigger.message || {};\nlet textForEvent = '';\ntry {\n  textForEvent = String($('Normalize Input').first().json.message.text || '').trim();\n} catch (e) {\n  textForEvent = String(msg.text || '').trim();\n}\nconst chatId = msg.chat?.id;\nconst messageId = msg.message_id;\n\nconst inputItem = $input.first();\nlet rawModel = inputItem.json.content?.parts?.[0]?.text\n  || inputItem.json.text\n  || inputItem.json.output\n  || inputItem.json;\nif (typeof rawModel === 'object' && rawModel !== null) {\n  if (rawModel.title !== undefined || rawModel.startsAt !== undefined || rawModel.error !== undefined) {\n    rawModel = JSON.stringify(rawModel);\n  } else if (rawModel.content?.parts?.[0]?.text) {\n    rawModel = rawModel.content.parts[0].text;\n  } else {\n    rawModel = JSON.stringify(rawModel);\n  }\n}\n\nlet clean = String(rawModel || '').replace(/```json|```/g, '').trim();\nlet ai;\ntry {\n  ai = JSON.parse(clean);\n  if (Array.isArray(ai)) ai = ai[0] || {};\n} catch (e) {\n  return [{ json: { ok: false, error: 'AI החזיר JSON לא תקין: ' + e.message, rawText: textForEvent, chatId, messageId, source: 'hybrid-voice' } }];\n}\n\nif (ai.error || !ai.startsAt) {\n  return [{ json: { ok: false, error: ai.error || 'לא מצאתי תאריך. שלחו טקסט או הקלטה עם יום ושעה', rawText: textForEvent, chatId, messageId, source: 'hybrid-voice', ai } }];\n}\n\nlet startsAt = new Date(ai.startsAt);\nif (Number.isNaN(startsAt.getTime())) {\n  return [{ json: { ok: false, error: 'תאריך לא תקין מה-AI', rawText: textForEvent, chatId, messageId, source: 'hybrid-voice', ai } }];\n}\n\nconst hourMentioned = Boolean(ai.hourMentioned);\nconst durationMentioned = Boolean(ai.durationMentioned);\nlet durationMinutes = Number(ai.durationMinutes);\nif (!Number.isFinite(durationMinutes) || durationMinutes <= 0) durationMinutes = 60;\nif (!durationMentioned) durationMinutes = 60;\n\nlet timeInferred = !hourMentioned;\nconst hint = (ai.timeOfDayHint || '').toLowerCase();\nconst forceMorning = hint === 'morning';\nconst forceEvening = ['evening', 'afternoon', 'night'].includes(hint);\nconst rawHour = ai.rawHour == null ? null : Number(ai.rawHour);\nlet hour = startsAt.getHours();\n\nif (hourMentioned && rawHour != null && Number.isFinite(rawHour)) {\n  let h = rawHour;\n  if (!forceMorning && (forceEvening || h <= 7) && h > 0 && h < 12) h += 12;\n  startsAt = new Date(startsAt.getFullYear(), startsAt.getMonth(), startsAt.getDate(), h, startsAt.getMinutes(), 0, 0);\n} else if (!hourMentioned) {\n  startsAt = new Date(startsAt.getFullYear(), startsAt.getMonth(), startsAt.getDate(), 9, 0, 0, 0);\n  timeInferred = true;\n} else if (!forceMorning && (forceEvening || hour <= 7) && hour > 0 && hour < 12) {\n  startsAt = new Date(startsAt.getTime() + 12 * 60 * 60 * 1000);\n}\n\nconst endsAt = new Date(startsAt.getTime() + durationMinutes * 60_000);\nlet title = String(ai.title || '').trim() || 'אירוע';\nif (title.length > 120) title = title.slice(0, 120);\n\nreturn [{\n  json: {\n    ok: true,\n    title,\n    startsAt: startsAt.toISOString(),\n    endsAt: endsAt.toISOString(),\n    durationMinutes,\n    timeInferred,\n    durationInferred: !durationMentioned,\n    confidence: ai.confidence ?? null,\n    rawText: textForEvent,\n    chatId,\n    messageId,\n    source: 'hybrid-voice',\n    fromVoice: Boolean(msg.voice || msg.audio),\n    ai,\n  },\n}];\n"
       }
     },
     {
-      "id": "17f0ea48-c53d-4ece-90e3-702b41a6ad8a",
+      "id": "db574109-5433-4e94-b6a5-39ea042da4ef",
       "name": "Parse OK?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        1000,
-        -40
+        2200,
+        -80
       ],
       "parameters": {
         "conditions": {
@@ -137,13 +366,13 @@
       }
     },
     {
-      "id": "4966f66e-cf2b-4910-9f02-813b111b3d75",
+      "id": "b59869d6-e1b4-4ba5-a00c-ba6a5a560310",
       "name": "Create Google Event",
       "type": "n8n-nodes-base.googleCalendar",
       "typeVersion": 1.3,
       "position": [
-        1260,
-        -160
+        2460,
+        -200
       ],
       "parameters": {
         "calendar": {
@@ -156,7 +385,7 @@
         "end": "={{ $json.endsAt }}",
         "additionalFields": {
           "summary": "={{ $json.title }}",
-          "description": "={{ 'נוצר מטלגרם (AI+ולידציה):\\n' + $json.rawText }}",
+          "description": "={{ 'נוצר מטלגרם' + ($json.fromVoice ? ' (קולי)' : '') + ':\\n' + $json.rawText }}",
           "useDefaultReminders": true
         }
       },
@@ -168,13 +397,13 @@
       }
     },
     {
-      "id": "c1d3845d-7819-44d3-a4b3-7a3dce8d480a",
+      "id": "c95d875e-1d69-43ae-a502-3196e09cf679",
       "name": "Save to Life App",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
       "position": [
-        1520,
-        -160
+        2720,
+        -200
       ],
       "parameters": {
         "operation": "create",
@@ -190,7 +419,7 @@
             },
             {
               "fieldId": "description",
-              "fieldValue": "={{ 'נוצר מטלגרם (AI+ולידציה):\\n' + $('Validate & Defaults').item.json.rawText }}"
+              "fieldValue": "={{ 'נוצר מטלגרם' + ($('Validate & Defaults').item.json.fromVoice ? ' (קולי)' : '') + ':\\n' + $('Validate & Defaults').item.json.rawText }}"
             },
             {
               "fieldId": "starts_at",
@@ -235,17 +464,17 @@
       }
     },
     {
-      "id": "dbbc14a0-e758-4c8d-b193-301f556b0813",
+      "id": "6361b535-27d7-40e6-803f-63f1ee99c880",
       "name": "Reply Success",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
       "position": [
-        1780,
-        -160
+        2980,
+        -200
       ],
       "parameters": {
         "chatId": "={{ $('Validate & Defaults').item.json.chatId }}",
-        "text": "=✅ נקבע ביומן\\n📌 {{ $('Validate & Defaults').item.json.title }}\\n🗓 {{ $('Validate & Defaults').item.json.startsAt }}\\n⏱ {{ $('Validate & Defaults').item.json.durationMinutes }} דק׳{{ $('Validate & Defaults').item.json.durationInferred ? ' (ברירת מחדל)' : '' }}{{ $('Validate & Defaults').item.json.timeInferred ? '\\n⚠️ לא צוינה שעה — נקבע 09:00' : '' }}",
+        "text": "=✅ נקבע ביומן{{ $('Validate & Defaults').item.json.fromVoice ? ' (מהקלטה)' : '' }}\\n📌 {{ $('Validate & Defaults').item.json.title }}\\n🗓 {{ $('Validate & Defaults').item.json.startsAt }}\\n⏱ {{ $('Validate & Defaults').item.json.durationMinutes }} דק׳{{ $('Validate & Defaults').item.json.durationInferred ? ' (ברירת מחדל)' : '' }}{{ $('Validate & Defaults').item.json.timeInferred ? '\\n⚠️ לא צוינה שעה — נקבע 09:00' : '' }}",
         "additionalFields": {
           "appendAttribution": false
         }
@@ -256,20 +485,20 @@
           "name": "Telegram account 2"
         }
       },
-      "webhookId": "5dcc32a1-ca26-40c9-b8a8-964f1d204c3a"
+      "webhookId": "3262da23-5711-4971-89d4-25c6f09e210a"
     },
     {
-      "id": "11113370-2970-471a-b258-8c99285a57df",
+      "id": "b3a2d389-4049-4d96-a5fb-3b6cf570155d",
       "name": "Reply Error",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
       "position": [
-        1260,
-        80
+        2460,
+        40
       ],
       "parameters": {
         "chatId": "={{ $json.chatId || $('Telegram Trigger').item.json.message.chat.id }}",
-        "text": "=❌ {{ $json.error || 'לא הצלחתי להבין את ההודעה' }}\\n\\nדוגמאות:\\n• יום שלישי הקרוב בשעה 6 תור לרופא\\n• מחר אחרי הצהריים פגישה עם רואה חשבון שעתיים\\n• 15/9 בשעה 10:30 בדיקה",
+        "text": "=❌ {{ $json.error || 'לא הצלחתי להבין' }}\\n\\nאפשר לשלוח טקסט או הודעה קולית, למשל:\\n«יום שלישי בשעה 6 תור לרופא»",
         "additionalFields": {
           "appendAttribution": false
         }
@@ -280,20 +509,20 @@
           "name": "Telegram account 2"
         }
       },
-      "webhookId": "51293927-ae9c-407f-86b2-e0c514fc8733"
+      "webhookId": "5743c5a7-dbf4-4c2d-a49c-7d848a4b5bf7"
     },
     {
-      "id": "4ccff2f0-5fdc-4f9c-be26-3f41d7149db4",
-      "name": "Reply Need Text",
+      "id": "9bf5c967-60c3-4ca6-a74e-df57eca35ec9",
+      "name": "Reply Need Input",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
       "position": [
-        500,
+        1720,
         160
       ],
       "parameters": {
         "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
-        "text": "שלחו טקסט חופשי עם יום/תאריך ושעה, למשל:\\nיום שלישי בשעה 6 תור לרופא",
+        "text": "שלחו טקסט או הקליטו הודעה קולית עם יום/תאריך ושעה 🎙️\\nלמשל: יום שלישי בשעה 6 תור לרופא",
         "additionalFields": {
           "appendAttribution": false
         }
@@ -304,7 +533,7 @@
           "name": "Telegram account 2"
         }
       },
-      "webhookId": "bfff32e2-33ca-4eeb-b539-1d23009ed9e1"
+      "webhookId": "45a60267-094d-4ba1-b565-be1118256b07"
     }
   ],
   "connections": {
@@ -312,14 +541,123 @@
       "main": [
         [
           {
-            "node": "Has Text?",
+            "node": "Input Type",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Has Text?": {
+    "Input Type": {
+      "main": [
+        [
+          {
+            "node": "Get Voice File",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Audio File",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Normalize Text",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Reply Need Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Voice File": {
+      "main": [
+        [
+          {
+            "node": "Transcribe Voice",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Audio File": {
+      "main": [
+        [
+          {
+            "node": "Transcribe Audio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transcribe Voice": {
+      "main": [
+        [
+          {
+            "node": "Wrap Transcription",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transcribe Audio": {
+      "main": [
+        [
+          {
+            "node": "Wrap Transcription",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wrap Transcription": {
+      "main": [
+        [
+          {
+            "node": "Normalize Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Text": {
+      "main": [
+        [
+          {
+            "node": "Normalize Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Input": {
+      "main": [
+        [
+          {
+            "node": "Has Content?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Content?": {
       "main": [
         [
           {
@@ -330,7 +668,7 @@
         ],
         [
           {
-            "node": "Reply Need Text",
+            "node": "Reply Need Input",
             "type": "main",
             "index": 0
           }
