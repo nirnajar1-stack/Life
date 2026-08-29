@@ -1,57 +1,47 @@
-# n8n: טלגרם → Google Calendar → Life App
+# n8n: טלגרם → Google Calendar → Life App (Hybrid AI)
 
-זרימה שמקבלת הודעת טקסט בבוט טלגרם, מפרסרת עברית/אנגלית לאירוע יומן, יוצרת אותו ב־Google Calendar, ושומרת עותק ב־Supabase (`calendar_events`) כדי שיופיע באפליקציה.
+זרימה שמקבלת הודעת טקסט בבוט טלגרם, מנתחת עם **Gemini**, ואז עוברת **ולידציה + ברירות מחדל** בקוד — יוצרת אירוע ב־Google Calendar ושומרת ב־Supabase (`calendar_events`).
 
 ## קבצים
 
 | קובץ | תפקיד |
 |------|--------|
-| `telegram-google-calendar.json` | Workflow לייבוא ל־n8n |
-| `parse-event.js` | אותו פרסר (לבדיקות / העתקה ל־Code node) |
+| `telegram-google-calendar.json` | Workflow לייבוא / mirror של מה שב־n8n Cloud |
+| `parse-event.js` | פרסר כללים (גיבוי / שימוש באפליקציה) |
 
-## התקנה ב־n8n
-
-1. **Credentials**
-   - Telegram Bot API (טוקן מ־BotFather)
-   - Google Calendar OAuth2 (חשבון עם גישה ליומן)
-2. **Environment variables** ב־n8n:
-   - `SUPABASE_ANON_KEY` או `SUPABASE_SERVICE_ROLE_KEY` (מפתח ל־Nir_DB)
-3. **Import**: Workflows → Import from File → בחרו את `telegram-google-calendar.json`
-4. בכל צומת Telegram / Google — בחרו את ה־credential האמיתי שלכם (ה־ID בקובץ הוא placeholder)
-5. **Activate** את ה־workflow וודאו שה־Telegram Trigger נרשם (webhook / polling לפי סוג ה־n8n)
-
-## דוגמאות הודעה
-
-```
-יום שלישי הקרוב בשעה 6 תור לרופא
-15/9 בשעה 10:30 פגישה
-מחר ב־18 ישיבת צוות שעתיים
-20 בספטמבר בשעה 9 בבוקר בדיקה
-```
-
-## כללי פרסור
-
-- **משך ברירת מחדל:** שעה אחת
-- **שעה ברירת מחדל** (אם לא צוינה): 09:00
-- שעות **1–7** בלי «בבוקר» נחשבות לערב (למשל 6 → 18:00)
-- תאריך מדויק: `15/9`, `15.9.2026`, `20 בספטמבר`
-- יום בשבוע: `יום שלישי` / `שלישי הקרוב`
-
-## זרימה
+## זרימה (Hybrid)
 
 ```
 Telegram Trigger
   → Has Text?
-  → Parse Event (Code)
+  → AI Extract Event (Gemini 2.5 Flash)  ← מבין ניסוח חופשי
+  → Validate & Defaults (Code)           ← אוכף כללים
   → Parse OK?
       ├─ Create Google Event
-      │    → Save to Life App (POST calendar_events)
+      │    → Save to Life App (calendar_events)
       │    → Reply Success
       └─ Reply Error
 ```
 
-## טבלת Supabase
+## מה ה־AI עושה
+מחלץ JSON: `title`, `startsAt`, `durationMinutes`, `hourMentioned`, `rawHour`, `timeOfDayHint`…
 
-`public.calendar_events` — נוצרה במיגרציה `20260829120000_calendar_events`.
+## מה הוולידציה אוכפת
+- משך ברירת מחדל: **60 דקות** אם לא צוין
+- שעה ברירת מחדל: **09:00** אם לא צוינה
+- שעות **1–7** בלי רמז לבוקר → ערב (+12), למשל 6 → 18:00
+- אם אין תאריך בכלל → שגיאה לטלגרם (בלי ליצור אירוע)
 
-האפליקציה קוראת ממנה במסך **יומן** ובפאנל האירועים במסך הבית.
+## Instance נוכחי
+- Workflow: `Telegram → Google Calendar + Life App`
+- URL: https://nir0544.app.n8n.cloud/workflow/54GpwjjBXsvlMQ61
+- Telegram: account 2 (לא בוט המשימות — כדי לא לשבור webhook)
+- Gemini / Google Calendar / Supabase: credentials קיימים ב־n8n
+
+## דוגמאות
+
+```
+יום שלישי הקרוב בשעה 6 תור לרופא
+מחר אחרי הצהריים פגישה עם רואה חשבון שעתיים
+15/9 בשעה 10:30 בדיקה
+```
