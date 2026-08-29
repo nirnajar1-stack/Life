@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../domain/character/config/pd_character_trait_config.dart';
 import '../../domain/config/pd_skill_config.dart';
 import '../../domain/engine/skill_engine.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -9,11 +10,13 @@ class CurrentFocusCard extends StatelessWidget {
     super.key,
     required this.primarySkill,
     this.secondarySkill,
+    this.characterTrait,
     this.notes,
   });
 
   final PdSkillConfig primarySkill;
   final PdSkillConfig? secondarySkill;
+  final PdCharacterTraitConfig? characterTrait;
   final String? notes;
 
   @override
@@ -60,6 +63,10 @@ class CurrentFocusCard extends StatelessWidget {
                 skill: secondarySkill!,
                 emphasized: false,
               ),
+            ],
+            if (characterTrait != null) ...[
+              const SizedBox(height: 12),
+              _CharacterFocusRow(trait: characterTrait!),
             ],
             if (notes != null && notes!.isNotEmpty) ...[
               const SizedBox(height: 12),
@@ -113,6 +120,41 @@ class _FocusRow extends StatelessWidget {
         ),
         Text(
           skill.descriptionHe,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: AppColors.muted,
+              ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CharacterFocusRow extends StatelessWidget {
+  const _CharacterFocusRow({required this.trait});
+
+  final PdCharacterTraitConfig trait;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Character Focus',
+          style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                color: AppColors.muted,
+                fontWeight: FontWeight.w700,
+              ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          trait.nameHe,
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+        ),
+        Text(
+          trait.behavioralDefinitionHe,
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: AppColors.muted,
               ),

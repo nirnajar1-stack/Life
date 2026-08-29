@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/supabase/supabase_providers.dart';
 import '../../data/models/pd_models.dart';
 import '../../data/repositories/personal_dev_repository.dart';
+import '../../domain/character/config/pd_skill_character_mapping.dart';
+import '../../domain/character/providers/character_providers.dart';
 import '../../domain/config/pd_skill_config.dart';
 import '../../domain/config/pd_skill_registry.dart';
 import '../../domain/engine/skill_engine.dart';
@@ -109,7 +111,7 @@ class PersonalDevController extends AsyncNotifier<void> {
   }) async {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
-      await _repo.logEvent(
+      final record = await _repo.logEvent(
         skillId: skillId,
         eventType: eventType,
         microBehaviors: microBehaviors,
@@ -126,6 +128,32 @@ class PersonalDevController extends AsyncNotifier<void> {
         situationId: situationId,
       );
       await _repo.incrementEventsInStage(skillId);
+
+      final eventContext = <String, dynamic>{
+        if (relationshipType != null) 'relationship_type': relationshipType,
+        if (powerGap != null) 'power_gap': powerGap.dbValue,
+        if (difficulty != null) 'difficulty': difficulty.dbValue,
+        if (emotionalActivation != null)
+          'emotional_activation': emotionalActivation.dbValue,
+        if (communicationChannel != null)
+          'communication_channel': communicationChannel.dbValue,
+      };
+
+      await ref.read(characterRepositoryProvider).syncEvidenceFromEvent(
+            eventId: record.event.id,
+            skillId: skillId,
+            microBehaviors: microBehaviors,
+            context: eventContext.isEmpty ? null : eventContext,
+            occurredAt: record.event.occurredAt,
+          );
+
+      final mappedTraits = mappingsForEvent(
+        skillId: skillId,
+        checkedBehaviorIds: microBehaviors,
+      )
+          .map((m) => m.traitId)
+          .toSet();
+
       ref.invalidate(pdEventsForSkillProvider(skillId));
       ref.invalidate(pdSkillProgressProvider(skillId));
       ref.invalidate(pdStageEvaluationProvider(skillId));
@@ -136,6 +164,11 @@ class PersonalDevController extends AsyncNotifier<void> {
             pdContextAnalyticsProvider(pdContextAnalyticsKey(skillId, dimension)),
           );
         }
+      }
+      for (final traitId in mappedTraits) {
+        ref.invalidate(pdCharacterEvidenceProvider(traitId));
+        ref.invalidate(pdCharacterTraitSummaryProvider(traitId));
+        ref.invalidate(pdCharacterWeeklyReviewProvider(traitId));
       }
     });
   }

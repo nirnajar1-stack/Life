@@ -4,8 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/layout/app_layout.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/app_section_header.dart';
+import '../../domain/character/config/pd_character_registry.dart';
 import '../../domain/config/pd_skill_registry.dart';
 import '../../domain/providers/personal_dev_providers.dart';
+import '../screens/character_screen.dart';
 import '../widgets/development_map_card.dart';
 import '../widgets/focus_progress_cards.dart';
 import '../widgets/skill_list_tile.dart';
@@ -24,6 +26,9 @@ class PersonalDevScreen extends ConsumerWidget {
     final secondarySkill = focus?.secondarySkillId != null
         ? pdSkillRegistry[focus!.secondarySkillId!]
         : null;
+    final characterTrait = focus?.traitFocus != null
+        ? pdCharacterRegistry[focus!.traitFocus!]
+        : null;
 
     return Scaffold(
       appBar: AppBar(
@@ -38,7 +43,30 @@ class PersonalDevScreen extends ConsumerWidget {
             CurrentFocusCard(
               primarySkill: primarySkill,
               secondarySkill: secondarySkill,
+              characterTrait: characterTrait,
               notes: focus?.notes,
+            ),
+            const SizedBox(height: 16),
+            AppSectionHeader(
+              title: 'Character',
+              actionLabel: 'פתח',
+              onAction: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const CharacterScreen()),
+              ),
+            ),
+            Card(
+              child: ListTile(
+                leading: Icon(Icons.auto_stories_outlined,
+                    color: AppColors.development),
+                title: const Text('Character Layer'),
+                subtitle: const Text(
+                  'ראיות התנהגותיות — לא Skills ולא ציונים',
+                ),
+                trailing: const Icon(Icons.chevron_left),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const CharacterScreen()),
+                ),
+              ),
             ),
             const SizedBox(height: 16),
             AppSectionHeader(title: 'Progress / Stage'),

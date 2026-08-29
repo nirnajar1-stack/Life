@@ -14,6 +14,7 @@ import '../../features/habits/domain/providers/habit_providers.dart';
 import '../../features/habits/presentation/screens/habit_form_screen.dart';
 import '../../features/habits/presentation/widgets/habit_checkin_tile.dart';
 import '../../features/notifications/presentation/notification_card.dart';
+import '../../features/personal_dev/presentation/widgets/character_home_reminder.dart';
 import '../../features/tasks/data/models/task_model.dart';
 import '../../features/tasks/domain/models/task_enums.dart';
 import '../../features/tasks/domain/providers/task_providers.dart';
@@ -218,6 +219,8 @@ class HomeScreen extends ConsumerWidget {
                   onAddHabit: () => _openHabitForm(context, ref),
                   onAddEvent: () => _openEventForm(context, ref),
                 ),
+                const SizedBox(height: 12),
+                const CharacterHomeReminder(),
                 const SizedBox(height: 12),
                 const NotificationCard(),
                 const SizedBox(height: 24),
