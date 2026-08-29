@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/supabase/supabase_providers.dart';
 import '../../data/models/pd_models.dart';
 import '../../data/repositories/personal_dev_repository.dart';
+import '../../domain/config/pd_skill_config.dart';
 import '../../domain/config/pd_skill_registry.dart';
 import '../../domain/engine/skill_engine.dart';
 import '../../domain/models/pd_enums.dart';
@@ -54,8 +55,15 @@ final pdStageEvaluationProvider =
   );
 });
 
-final pdRelationshipAnalyticsProvider =
-    FutureProvider.family<PdContextAnalytics, String>((ref, skillId) async {
+final pdContextAnalyticsProvider =
+    FutureProvider.family<PdContextAnalytics, String>((ref, key) async {
+  final separator = key.indexOf('|');
+  final skillId = key.substring(0, separator);
+  final dimensionKey = key.substring(separator + 1);
+  final dimension = PdContextDimension.values.firstWhere(
+    (d) => d.key == dimensionKey,
+  );
+
   final events =
       await ref.watch(personalDevRepositoryProvider).fetchEventsForSkill(skillId);
   final snapshots = events
@@ -63,12 +71,19 @@ final pdRelationshipAnalyticsProvider =
         (r) => PdContextEventSnapshot(
           relationshipType: r.event.relationshipType,
           powerGap: r.event.powerGap?.dbValue,
+          outcomeImportance: r.event.outcomeImportance?.dbValue,
+          difficulty: r.event.difficulty?.dbValue,
+          emotionalActivation: r.event.emotionalActivation?.dbValue,
+          communicationChannel: r.event.communicationChannel?.dbValue,
           performanceScore: r.eventSkill.performanceScore,
         ),
       )
       .toList();
-  return computeRelationshipTypeAnalytics(snapshots);
+  return computeContextAnalytics(snapshots, dimension);
 });
+
+String pdContextAnalyticsKey(String skillId, PdContextDimension dimension) =>
+    '$skillId|${dimension.key}';
 
 class PersonalDevController extends AsyncNotifier<void> {
   @override
@@ -88,6 +103,7 @@ class PersonalDevController extends AsyncNotifier<void> {
     PdContextLevel? outcomeImportance,
     PdContextLevel? difficulty,
     PdContextLevel? emotionalActivation,
+    PdCommunicationChannel? communicationChannel,
     String? notes,
     String? situationId,
   }) async {
@@ -105,6 +121,7 @@ class PersonalDevController extends AsyncNotifier<void> {
         outcomeImportance: outcomeImportance,
         difficulty: difficulty,
         emotionalActivation: emotionalActivation,
+        communicationChannel: communicationChannel,
         notes: notes,
         situationId: situationId,
       );
@@ -112,6 +129,14 @@ class PersonalDevController extends AsyncNotifier<void> {
       ref.invalidate(pdEventsForSkillProvider(skillId));
       ref.invalidate(pdSkillProgressProvider(skillId));
       ref.invalidate(pdStageEvaluationProvider(skillId));
+      final skill = pdSkillRegistry[skillId];
+      if (skill != null) {
+        for (final dimension in skill.contextDimensions) {
+          ref.invalidate(
+            pdContextAnalyticsProvider(pdContextAnalyticsKey(skillId, dimension)),
+          );
+        }
+      }
     });
   }
 

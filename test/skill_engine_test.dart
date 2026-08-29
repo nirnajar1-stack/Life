@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:life_app/features/personal_dev/domain/config/pd_skill_config.dart';
 import 'package:life_app/features/personal_dev/domain/config/pd_skill_registry.dart';
 import 'package:life_app/features/personal_dev/domain/engine/skill_engine.dart';
 
@@ -160,6 +161,60 @@ void main() {
       expect(analytics.groups.length, 2);
       expect(analytics.groups.first.label, 'עמיתים');
       expect(analytics.groups.first.avgScorePercent, 90);
+    });
+  });
+
+  group('clear communication (config-only skill 3)', () {
+    test('registry includes skill with drills and communication channel', () {
+      expect(pdSkillRegistry.containsKey('clear_communication'), isTrue);
+      expect(clearCommunicationSkill.drills.length, 2);
+      expect(
+        clearCommunicationSkill.contextDimensions,
+        contains(PdContextDimension.communicationChannel),
+      );
+      expect(clearCommunicationSkill.microBehaviors.length, 5);
+    });
+
+    test('scoring works with different micro-behaviors', () {
+      expect(
+        computePerformanceScore(
+          skill: clearCommunicationSkill,
+          stageId: 'low_stakes_practice',
+          checkedBehaviorIds: const ['explained_reasoning'],
+        ),
+        greaterThanOrEqualTo(2),
+      );
+    });
+
+    test('communication channel analytics are generic', () {
+      final analytics = computeContextAnalytics(const [
+        PdContextEventSnapshot(
+          communicationChannel: 'meeting',
+          performanceScore: 5,
+        ),
+        PdContextEventSnapshot(
+          communicationChannel: 'chat',
+          performanceScore: 4,
+        ),
+        PdContextEventSnapshot(
+          communicationChannel: 'chat',
+          performanceScore: 5,
+        ),
+      ], PdContextDimension.communicationChannel);
+
+      expect(analytics.overallPercent, 93);
+      expect(analytics.groups.length, 2);
+      expect(
+        analytics.groups.map((g) => g.label),
+        containsAll(['פגישה', 'צ\'אט']),
+      );
+    });
+
+    test('self regulation does not require communication channel', () {
+      expect(
+        selfRegulationSkill.contextDimensions,
+        isNot(contains(PdContextDimension.communicationChannel)),
+      );
     });
   });
 }

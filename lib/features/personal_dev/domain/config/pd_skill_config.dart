@@ -5,7 +5,8 @@ enum PdContextDimension {
   outcomeImportance('outcome_importance', 'חשיבות תוצאה'),
   difficulty('difficulty', 'קושי'),
   emotionalActivation('emotional_activation', 'הפעלה רגשית'),
-  relationshipSafety('relationship_safety', 'בטיחות בקשר');
+  relationshipSafety('relationship_safety', 'בטיחות בקשר'),
+  communicationChannel('communication_channel', 'ערוץ תקשורת');
 
   const PdContextDimension(this.key, this.labelHe);
 

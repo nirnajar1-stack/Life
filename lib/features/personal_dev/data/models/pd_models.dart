@@ -106,6 +106,7 @@ class PdEvent {
     this.outcomeImportance,
     this.difficulty,
     this.emotionalActivation,
+    this.communicationChannel,
     this.situationId,
     this.notes,
     required this.createdAt,
@@ -121,6 +122,7 @@ class PdEvent {
   final PdContextLevel? outcomeImportance;
   final PdContextLevel? difficulty;
   final PdContextLevel? emotionalActivation;
+  final PdCommunicationChannel? communicationChannel;
   final String? situationId;
   final String? notes;
   final DateTime createdAt;
@@ -140,6 +142,9 @@ class PdEvent {
       difficulty: PdContextLevel.fromDb(json['difficulty'] as String?),
       emotionalActivation:
           PdContextLevel.fromDb(json['emotional_activation'] as String?),
+      communicationChannel: PdCommunicationChannel.fromDb(
+        json['communication_channel'] as String?,
+      ),
       situationId: json['situation_id'] as String?,
       notes: json['notes'] as String?,
       createdAt: DateTime.parse(json['created_at'] as String),
@@ -160,6 +165,8 @@ class PdEvent {
       if (difficulty != null) 'difficulty': difficulty!.dbValue,
       if (emotionalActivation != null)
         'emotional_activation': emotionalActivation!.dbValue,
+      if (communicationChannel != null)
+        'communication_channel': communicationChannel!.dbValue,
       if (situationId != null) 'situation_id': situationId,
       if (notes != null) 'notes': notes,
     };

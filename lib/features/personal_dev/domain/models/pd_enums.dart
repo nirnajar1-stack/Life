@@ -65,3 +65,34 @@ enum PdSafetyLevel {
         PdSafetyLevel.unsafe => 'לא בטוח',
       };
 }
+
+enum PdCommunicationChannel {
+  faceToFace('face_to_face'),
+  meeting('meeting'),
+  phone('phone'),
+  videoCall('video_call'),
+  chat('chat'),
+  email('email'),
+  presentation('presentation');
+
+  const PdCommunicationChannel(this.dbValue);
+  final String dbValue;
+
+  static PdCommunicationChannel? fromDb(String? value) {
+    if (value == null) return null;
+    for (final channel in PdCommunicationChannel.values) {
+      if (channel.dbValue == value) return channel;
+    }
+    return null;
+  }
+
+  String get labelHe => switch (this) {
+        PdCommunicationChannel.faceToFace => 'פנים אל פנים',
+        PdCommunicationChannel.meeting => 'פגישה',
+        PdCommunicationChannel.phone => 'טלפון',
+        PdCommunicationChannel.videoCall => 'שיחת וידאו',
+        PdCommunicationChannel.chat => 'צ\'אט',
+        PdCommunicationChannel.email => 'אימייל',
+        PdCommunicationChannel.presentation => 'מצגת',
+      };
+}

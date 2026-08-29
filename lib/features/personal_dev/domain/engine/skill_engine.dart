@@ -1,4 +1,5 @@
 import '../config/pd_skill_config.dart';
+import '../models/pd_enums.dart';
 
 /// Snapshot of one logged event for stage evaluation.
 class PdEventSnapshot {
@@ -110,12 +111,47 @@ class PdContextEventSnapshot {
   const PdContextEventSnapshot({
     this.relationshipType,
     this.powerGap,
+    this.outcomeImportance,
+    this.difficulty,
+    this.emotionalActivation,
+    this.communicationChannel,
     this.performanceScore,
   });
 
   final String? relationshipType;
   final String? powerGap;
+  final String? outcomeImportance;
+  final String? difficulty;
+  final String? emotionalActivation;
+  final String? communicationChannel;
   final int? performanceScore;
+
+  String? rawValueFor(PdContextDimension dimension) {
+    return switch (dimension) {
+      PdContextDimension.relationshipType => relationshipType,
+      PdContextDimension.powerGap => powerGap,
+      PdContextDimension.outcomeImportance => outcomeImportance,
+      PdContextDimension.difficulty => difficulty,
+      PdContextDimension.emotionalActivation => emotionalActivation,
+      PdContextDimension.communicationChannel => communicationChannel,
+      PdContextDimension.relationshipSafety => null,
+    };
+  }
+}
+
+/// Human-readable label for analytics buckets (enum values → localized labels).
+String formatContextAnalyticsLabel(PdContextDimension dimension, String raw) {
+  return switch (dimension) {
+    PdContextDimension.powerGap ||
+    PdContextDimension.outcomeImportance ||
+    PdContextDimension.difficulty ||
+    PdContextDimension.emotionalActivation =>
+      PdContextLevel.fromDb(raw)?.labelHe ?? raw,
+    PdContextDimension.communicationChannel =>
+      PdCommunicationChannel.fromDb(raw)?.labelHe ?? raw,
+    PdContextDimension.relationshipSafety => raw,
+    PdContextDimension.relationshipType => raw,
+  };
 }
 
 class PdContextScoreGroup {
@@ -130,22 +166,24 @@ class PdContextScoreGroup {
   final int avgScorePercent;
 }
 
-/// Groups scored events by relationship type for breakdown views (e.g. Peers vs Senior Leaders).
-PdContextAnalytics computeRelationshipTypeAnalytics(
+/// Groups scored events by any configured context dimension.
+PdContextAnalytics computeContextAnalytics(
   List<PdContextEventSnapshot> events,
+  PdContextDimension dimension,
 ) {
-  final scored =
-      events.where((e) => e.performanceScore != null).toList();
+  final scored = events.where((e) => e.performanceScore != null).toList();
   if (scored.isEmpty) {
-    return const PdContextAnalytics(overallPercent: 0, groups: []);
+    return PdContextAnalytics(dimension: dimension, overallPercent: 0, groups: []);
   }
 
-  final overall = _avgScorePercent(scored.map((e) => e.performanceScore!).toList());
+  final overall =
+      _avgScorePercent(scored.map((e) => e.performanceScore!).toList());
   final buckets = <String, List<int>>{};
   for (final event in scored) {
-    final key = (event.relationshipType?.trim().isEmpty ?? true)
+    final raw = event.rawValueFor(dimension);
+    final key = (raw == null || raw.trim().isEmpty)
         ? 'לא צוין'
-        : event.relationshipType!.trim();
+        : formatContextAnalyticsLabel(dimension, raw.trim());
     buckets.putIfAbsent(key, () => []).add(event.performanceScore!);
   }
 
@@ -160,15 +198,27 @@ PdContextAnalytics computeRelationshipTypeAnalytics(
       .toList()
     ..sort((a, b) => b.avgScorePercent.compareTo(a.avgScorePercent));
 
-  return PdContextAnalytics(overallPercent: overall, groups: groups);
+  return PdContextAnalytics(
+    dimension: dimension,
+    overallPercent: overall,
+    groups: groups,
+  );
 }
+
+/// Backward-compatible helper for relationship-type breakdowns.
+PdContextAnalytics computeRelationshipTypeAnalytics(
+  List<PdContextEventSnapshot> events,
+) =>
+    computeContextAnalytics(events, PdContextDimension.relationshipType);
 
 class PdContextAnalytics {
   const PdContextAnalytics({
+    required this.dimension,
     required this.overallPercent,
     required this.groups,
   });
 
+  final PdContextDimension dimension;
   final int overallPercent;
   final List<PdContextScoreGroup> groups;
 }

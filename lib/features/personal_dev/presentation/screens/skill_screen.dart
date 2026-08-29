@@ -177,10 +177,17 @@ class SkillScreen extends ConsumerWidget {
                 ),
               ),
             ],
-            if (skill.contextDimensions
-                .contains(PdContextDimension.relationshipType)) ...[
+            if (skill.contextDimensions.isNotEmpty) ...[
               const SizedBox(height: 20),
-              _ContextAnalyticsSection(skillId: skillId),
+              ...skill.contextDimensions.map(
+                (dimension) => Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _ContextAnalyticsSection(
+                    skillId: skillId,
+                    dimension: dimension,
+                  ),
+                ),
+              ),
             ],
             const SizedBox(height: 20),
             Text(
@@ -267,13 +274,19 @@ class SkillScreen extends ConsumerWidget {
 }
 
 class _ContextAnalyticsSection extends ConsumerWidget {
-  const _ContextAnalyticsSection({required this.skillId});
+  const _ContextAnalyticsSection({
+    required this.skillId,
+    required this.dimension,
+  });
 
   final String skillId;
+  final PdContextDimension dimension;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final analyticsAsync = ref.watch(pdRelationshipAnalyticsProvider(skillId));
+    final analyticsAsync = ref.watch(
+      pdContextAnalyticsProvider(pdContextAnalyticsKey(skillId, dimension)),
+    );
 
     return analyticsAsync.when(
       loading: () => const SizedBox(
@@ -284,7 +297,7 @@ class _ContextAnalyticsSection extends ConsumerWidget {
       data: (analytics) {
         if (analytics.groups.isEmpty) {
           return Text(
-            'ניתוח לפי סוג קשר יופיע אחרי רישום אירועים עם הקשר.',
+            'ניתוח לפי ${dimension.labelHe} יופיע אחרי רישום אירועים עם הקשר.',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: AppColors.muted,
                 ),
@@ -297,7 +310,7 @@ class _ContextAnalyticsSection extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  'Analytics לפי סוג קשר',
+                  'Analytics · ${dimension.labelHe}',
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
                         fontWeight: FontWeight.w800,
                       ),

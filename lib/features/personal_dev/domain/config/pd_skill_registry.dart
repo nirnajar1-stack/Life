@@ -238,10 +238,162 @@ const assertivenessSkill = PdSkillConfig(
   ],
 );
 
+/// Clear Communication — Layer 2, message clarity skill (Phase 1 / Skill 3).
+const clearCommunicationSkill = PdSkillConfig(
+  id: 'clear_communication',
+  nameHe: 'תקשורת ברורה',
+  descriptionHe:
+      'יכולת להעביר מסר ברור, קצר ומובנה — מה העמדה, למה, ומה צריך לקרות עכשיו.',
+  layer: 2,
+  contextDimensions: [
+    PdContextDimension.relationshipType,
+    PdContextDimension.powerGap,
+    PdContextDimension.outcomeImportance,
+    PdContextDimension.difficulty,
+    PdContextDimension.emotionalActivation,
+    PdContextDimension.communicationChannel,
+  ],
+  relationshipTypeSuggestions: const [
+    'עמיתים',
+    'מנהל בכיר',
+    'צוות',
+    'פגישה',
+    'לקוח',
+  ],
+  stages: [
+    PdStageConfig(
+      id: 'awareness',
+      nameHe: 'מודעות',
+      descriptionHe: 'מזהה מתי המסר לא ברור, ארוך מדי, או חסר מבנה.',
+      order: 1,
+      minEvents: 3,
+      minAvgScore: 2.5,
+      minBehaviorRate: 0.3,
+    ),
+    PdStageConfig(
+      id: 'low_stakes_practice',
+      nameHe: 'תרגול סיכון נמוך',
+      descriptionHe: 'מתרגל מסר קצר ומובנה במצבים מוגנים.',
+      order: 2,
+      minEvents: 4,
+      minAvgScore: 3.0,
+      minBehaviorRate: 0.4,
+    ),
+    PdStageConfig(
+      id: 'real_world_application',
+      nameHe: 'יישום בעולם האמיתי',
+      descriptionHe: 'מעביר מסרים ברורים בשיחות ופגישות אמיתיות.',
+      order: 3,
+      minEvents: 5,
+      minAvgScore: 3.2,
+      minBehaviorRate: 0.5,
+    ),
+    PdStageConfig(
+      id: 'high_stakes_application',
+      nameHe: 'יישום סיכון גבוה',
+      descriptionHe: 'שומר על בהירות גם תחת לחץ או פער סמכות.',
+      order: 4,
+      minEvents: 6,
+      minAvgScore: 3.5,
+      minBehaviorRate: 0.55,
+    ),
+    PdStageConfig(
+      id: 'integrated_mastery',
+      nameHe: 'שליטה משולבת',
+      descriptionHe: 'תקשורת ברורה וטבעית בכל ערוץ והקשר.',
+      order: 5,
+      minEvents: 8,
+      minAvgScore: 4.0,
+      minBehaviorRate: 0.65,
+    ),
+  ],
+  microBehaviors: [
+    PdMicroBehavior(
+      id: 'main_point_stated_early',
+      labelHe: 'הצגתי את הנקודה המרכזית מוקדם',
+      stageId: 'awareness',
+    ),
+    PdMicroBehavior(
+      id: 'explained_reasoning',
+      labelHe: 'הסברתי את ההיגיון (Why)',
+      stageId: 'low_stakes_practice',
+    ),
+    PdMicroBehavior(
+      id: 'used_concrete_example',
+      labelHe: 'השתמשתי בדוגמה / evidence קונקרטי',
+      stageId: 'real_world_application',
+    ),
+    PdMicroBehavior(
+      id: 'stated_desired_next_action',
+      labelHe: 'ציינתי את הפעולה / Next Step המבוקש',
+      stageId: 'real_world_application',
+    ),
+    PdMicroBehavior(
+      id: 'avoided_over_explaining',
+      labelHe: 'נמנעתי מהסבר מיותר',
+      stageId: 'integrated_mastery',
+    ),
+  ],
+  drills: [
+    PdDrillConfig(
+      id: 'thirty_second_main_point',
+      nameHe: '30 Second Main Point',
+      descriptionHe:
+          'העבר מסר תוך 30 שניות — הגע לנקודה המרכזית מוקדם, בלי הקדמה ארוכה.',
+      suggestedBehaviorIds: [
+        'main_point_stated_early',
+        'avoided_over_explaining',
+      ],
+      stageId: 'low_stakes_practice',
+    ),
+    PdDrillConfig(
+      id: 'point_why_evidence_action',
+      nameHe: 'Point → Why → Evidence → Action',
+      descriptionHe:
+          'בנה מסר לפי: Main Point · Why · Evidence/Example · Requested Action.',
+      suggestedBehaviorIds: [
+        'main_point_stated_early',
+        'explained_reasoning',
+        'used_concrete_example',
+        'stated_desired_next_action',
+      ],
+      stageId: 'low_stakes_practice',
+    ),
+  ],
+  realWorldMissions: [
+    PdMissionConfig(
+      id: 'open_with_main_point',
+      labelHe: 'לפתוח שיחה עם הנקודה המרכזית במקום עם רקע ארוך',
+      stageId: 'real_world_application',
+    ),
+    PdMissionConfig(
+      id: 'explain_decision_briefly',
+      labelHe: 'להסביר החלטה במשפטים קצרים וברורים',
+      stageId: 'real_world_application',
+    ),
+    PdMissionConfig(
+      id: 'end_with_next_step',
+      labelHe: 'לסיים מסר בבקשה או Next Step ברור',
+      stageId: 'real_world_application',
+    ),
+    PdMissionConfig(
+      id: 'one_concrete_example',
+      labelHe: 'להשתמש בדוגמה אחת במקום הסבר מופשט',
+      stageId: 'real_world_application',
+    ),
+    PdMissionConfig(
+      id: 'shorten_when_delivered',
+      labelHe: 'לקצר הסבר כאשר כבר הועבר המסר',
+      stageId: 'integrated_mastery',
+    ),
+  ],
+);
+
 /// All registered skills — add new entries here, not new UI screens.
 final pdSkillRegistry = <String, PdSkillConfig>{
   'self_regulation': selfRegulationSkill,
   'assertiveness': assertivenessSkill,
+  'clear_communication': clearCommunicationSkill,
 };
 
 PdSkillConfig? pdSkillById(String id) => pdSkillRegistry[id];

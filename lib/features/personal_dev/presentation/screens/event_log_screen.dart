@@ -28,7 +28,13 @@ class _EventLogScreenState extends ConsumerState<EventLogScreen> {
   PdContextLevel? _difficulty;
   PdContextLevel? _emotionalActivation;
   PdSafetyLevel? _relationshipSafety;
+  PdCommunicationChannel? _communicationChannel;
   bool _saving = false;
+
+  bool _showsDimension(PdSkillConfig skill, PdContextDimension dimension) {
+    return skill.contextDimensions.isEmpty ||
+        skill.contextDimensions.contains(dimension);
+  }
 
   @override
   void dispose() {
@@ -60,6 +66,7 @@ class _EventLogScreenState extends ConsumerState<EventLogScreen> {
             outcomeImportance: _outcomeImportance,
             difficulty: _difficulty,
             emotionalActivation: _emotionalActivation,
+            communicationChannel: _communicationChannel,
             notes: _notesController.text.trim().isEmpty
                 ? null
                 : _notesController.text.trim(),
@@ -140,60 +147,60 @@ class _EventLogScreenState extends ConsumerState<EventLogScreen> {
               const SizedBox(height: 12),
             ],
             Text('הקשר', style: _labelStyle(context)),
-            if (skill.relationshipTypeSuggestions.isNotEmpty) ...[
-              Wrap(
-                spacing: 6,
-                runSpacing: 4,
-                children: skill.relationshipTypeSuggestions.map((suggestion) {
-                  return ActionChip(
-                    label: Text(suggestion),
-                    onPressed: () {
-                      _relationshipController.text = suggestion;
-                    },
-                  );
-                }).toList(),
+            if (_showsDimension(skill, PdContextDimension.relationshipType)) ...[
+              if (skill.relationshipTypeSuggestions.isNotEmpty) ...[
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children:
+                      skill.relationshipTypeSuggestions.map((suggestion) {
+                    return ActionChip(
+                      label: Text(suggestion),
+                      onPressed: () {
+                        _relationshipController.text = suggestion;
+                      },
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 8),
+              ],
+              TextField(
+                controller: _relationshipController,
+                decoration: const InputDecoration(
+                  hintText: 'סוג קשר (למשל: עמיתים, מנהל בכיר, פגישה)',
+                ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
             ],
-            TextField(
-              controller: _relationshipController,
-              decoration: const InputDecoration(
-                hintText: 'סוג קשר (למשל: עמיתים, מנהל בכיר)',
+            if (_showsDimension(skill, PdContextDimension.communicationChannel))
+              _CommunicationChannelPicker(
+                value: _communicationChannel,
+                onChanged: (v) => setState(() => _communicationChannel = v),
               ),
-            ),
-            const SizedBox(height: 12),
-            if (skill.contextDimensions.isEmpty ||
-                skill.contextDimensions.contains(PdContextDimension.powerGap))
+            if (_showsDimension(skill, PdContextDimension.powerGap))
               _LevelPicker(
                 label: 'פער כוח',
                 value: _powerGap,
                 onChanged: (v) => setState(() => _powerGap = v),
               ),
-            if (skill.contextDimensions.isEmpty ||
-                skill.contextDimensions
-                    .contains(PdContextDimension.relationshipSafety))
+            if (_showsDimension(skill, PdContextDimension.relationshipSafety))
               _SafetyPicker(
                 value: _relationshipSafety,
                 onChanged: (v) => setState(() => _relationshipSafety = v),
               ),
-            if (skill.contextDimensions.isEmpty ||
-                skill.contextDimensions
-                    .contains(PdContextDimension.outcomeImportance))
+            if (_showsDimension(skill, PdContextDimension.outcomeImportance))
               _LevelPicker(
                 label: 'חשיבות תוצאה',
                 value: _outcomeImportance,
                 onChanged: (v) => setState(() => _outcomeImportance = v),
               ),
-            if (skill.contextDimensions.isEmpty ||
-                skill.contextDimensions.contains(PdContextDimension.difficulty))
+            if (_showsDimension(skill, PdContextDimension.difficulty))
               _LevelPicker(
                 label: 'קושי',
                 value: _difficulty,
                 onChanged: (v) => setState(() => _difficulty = v),
               ),
-            if (skill.contextDimensions.isEmpty ||
-                skill.contextDimensions
-                    .contains(PdContextDimension.emotionalActivation))
+            if (_showsDimension(skill, PdContextDimension.emotionalActivation))
               _LevelPicker(
                 label: 'הפעלה רגשית',
                 value: _emotionalActivation,
@@ -293,6 +300,48 @@ class _LevelPicker extends StatelessWidget {
                   label: Text(level.labelHe),
                   selected: value == level,
                   onSelected: (_) => onChanged(level),
+                );
+              }),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CommunicationChannelPicker extends StatelessWidget {
+  const _CommunicationChannelPicker({
+    required this.value,
+    required this.onChanged,
+  });
+
+  final PdCommunicationChannel? value;
+  final ValueChanged<PdCommunicationChannel?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('ערוץ תקשורת',
+              style: Theme.of(context).textTheme.bodySmall),
+          Wrap(
+            spacing: 6,
+            runSpacing: 4,
+            children: [
+              ChoiceChip(
+                label: const Text('—'),
+                selected: value == null,
+                onSelected: (_) => onChanged(null),
+              ),
+              ...PdCommunicationChannel.values.map((channel) {
+                return ChoiceChip(
+                  label: Text(channel.labelHe),
+                  selected: value == channel,
+                  onSelected: (_) => onChanged(channel),
                 );
               }),
             ],

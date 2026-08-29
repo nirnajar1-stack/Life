@@ -93,6 +93,7 @@ class PersonalDevRepository {
     PdContextLevel? outcomeImportance,
     PdContextLevel? difficulty,
     PdContextLevel? emotionalActivation,
+    PdCommunicationChannel? communicationChannel,
     String? notes,
     String? situationId,
   }) async {
@@ -122,6 +123,8 @@ class PersonalDevRepository {
           if (difficulty != null) 'difficulty': difficulty.dbValue,
           if (emotionalActivation != null)
             'emotional_activation': emotionalActivation.dbValue,
+          if (communicationChannel != null)
+            'communication_channel': communicationChannel.dbValue,
           if (situationId != null) 'situation_id': situationId,
           if (notes != null) 'notes': notes,
         })
