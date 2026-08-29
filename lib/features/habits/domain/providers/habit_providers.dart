@@ -4,6 +4,7 @@ import '../../../../core/supabase/supabase_providers.dart';
 import '../../data/models/habit_models.dart';
 import '../../data/repositories/habit_repository.dart';
 import '../habit_engine.dart';
+import '../models/habit_enums.dart';
 
 final habitRepositoryProvider = Provider<HabitRepository>((ref) {
   return HabitRepository(ref.watch(supabaseClientProvider));
@@ -19,6 +20,20 @@ final todaysHabitsProvider = Provider<List<HabitSnapshot>>((ref) {
   final today = DateTime.now();
   return ref.watch(habitsControllerProvider).valueOrNull?.where((snapshot) {
         return habitIsDueOn(snapshot.habit, today);
+      }).toList() ??
+      const [];
+});
+
+final dailyActiveHabitsProvider = Provider<List<HabitSnapshot>>((ref) {
+  return ref.watch(habitsControllerProvider).valueOrNull?.where((snapshot) {
+        return snapshot.habit.isDailyActive;
+      }).toList() ??
+      const [];
+});
+
+final graduatedHabitsProvider = Provider<List<HabitSnapshot>>((ref) {
+  return ref.watch(habitsControllerProvider).valueOrNull?.where((snapshot) {
+        return snapshot.habit.isWeeklyMaintenance;
       }).toList() ??
       const [];
 });
@@ -65,7 +80,11 @@ class HabitsController extends StateNotifier<AsyncValue<List<HabitSnapshot>>> {
     state = AsyncData([
       for (final item in previous)
         if (item.habit.id == habit.id)
-          HabitSnapshot(habit: habit, logs: item.logs)
+          HabitSnapshot(
+            habit: habit,
+            logs: item.logs,
+            weeklyLogs: item.weeklyLogs,
+          )
         else
           item,
     ]);
@@ -83,6 +102,92 @@ class HabitsController extends StateNotifier<AsyncValue<List<HabitSnapshot>>> {
     state = AsyncData(previous.where((item) => item.habit.id != id).toList());
     try {
       await _repo.archiveHabit(id);
+    } catch (_) {
+      if (!mounted) return;
+      state = AsyncData(previous);
+      rethrow;
+    }
+  }
+
+  Future<void> graduate(HabitSnapshot snapshot) async {
+    final previous = _items;
+    try {
+      final updated = await _repo.graduateHabit(snapshot.habit);
+      if (!mounted) return;
+      state = AsyncData([
+        for (final item in previous)
+          if (item.habit.id == snapshot.habit.id)
+            HabitSnapshot(
+              habit: updated,
+              logs: item.logs,
+              weeklyLogs: item.weeklyLogs,
+            )
+          else
+            item,
+      ]);
+    } catch (_) {
+      if (!mounted) return;
+      state = AsyncData(previous);
+      rethrow;
+    }
+  }
+
+  Future<void> reactivate(HabitSnapshot snapshot) async {
+    final previous = _items;
+    try {
+      final updated = await _repo.reactivateHabit(snapshot.habit);
+      if (!mounted) return;
+      state = AsyncData([
+        for (final item in previous)
+          if (item.habit.id == snapshot.habit.id)
+            HabitSnapshot(
+              habit: updated,
+              logs: item.logs,
+              weeklyLogs: item.weeklyLogs,
+            )
+          else
+            item,
+      ]);
+    } catch (_) {
+      if (!mounted) return;
+      state = AsyncData(previous);
+      rethrow;
+    }
+  }
+
+  Future<void> submitWeeklyCheckin({
+    required HabitSnapshot snapshot,
+    required WeeklyCheckinStatus status,
+    DateTime? weekStart,
+    String? notes,
+  }) async {
+    final previous = _items;
+    final start = habitWeekStart(weekStart ?? DateTime.now());
+    try {
+      final saved = await _repo.upsertWeeklyLog(
+        habitId: snapshot.habit.id,
+        weekStart: start,
+        status: status,
+        notes: notes,
+      );
+      if (!mounted) return;
+      final nextWeekly = [
+        saved,
+        ...snapshot.weeklyLogs.where(
+          (log) => formatHabitDate(log.weekStartDate) != formatHabitDate(start),
+        ),
+      ];
+      state = AsyncData([
+        for (final item in previous)
+          if (item.habit.id == snapshot.habit.id)
+            HabitSnapshot(
+              habit: item.habit,
+              logs: item.logs,
+              weeklyLogs: nextWeekly,
+            )
+          else
+            item,
+      ]);
     } catch (_) {
       if (!mounted) return;
       state = AsyncData(previous);

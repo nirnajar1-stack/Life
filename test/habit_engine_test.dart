@@ -112,4 +112,58 @@ void main() {
       isFalse,
     );
   });
+  test('easy habit graduates at 26/30 completions', () {
+    final habit = _habit(createdAt: DateTime(2026, 7, 1));
+    final now = DateTime(2026, 8, 15);
+    final logs = [
+      for (var i = 0; i < 26; i++)
+        _log(DateTime(2026, 7, 17).add(Duration(days: i))),
+    ];
+    final eval = evaluateHabitGraduation(habit: habit, logs: logs, now: now);
+    expect(eval.windowDays, 30);
+    expect(eval.requiredCompletions, 26);
+    expect(eval.completionsInWindow, 26);
+    expect(eval.eligible, isTrue);
+  });
+
+  test('hard habit needs 60-day window', () {
+    final habit = _habit(
+      createdAt: DateTime(2026, 6, 1),
+    ).copyWith(difficulty: HabitDifficulty.hard);
+    final now = DateTime(2026, 7, 15); // only ~45 days tracked from Jun 1
+    final logs = [
+      for (var i = 0; i < 40; i++)
+        _log(DateTime(2026, 6, 1).add(Duration(days: i))),
+    ];
+    final eval = evaluateHabitGraduation(habit: habit, logs: logs, now: now);
+    expect(eval.windowDays, 60);
+    expect(eval.eligible, isFalse);
+  });
+
+  test('two slipped weeks suggest relapse', () {
+    final logs = [
+      HabitWeeklyLog(
+        id: '1',
+        habitId: 'h1',
+        weekStartDate: DateTime(2026, 8, 18),
+        status: WeeklyCheckinStatus.slipped,
+        createdAt: DateTime(2026, 8, 20),
+      ),
+      HabitWeeklyLog(
+        id: '2',
+        habitId: 'h1',
+        weekStartDate: DateTime(2026, 8, 11),
+        status: WeeklyCheckinStatus.slipped,
+        createdAt: DateTime(2026, 8, 13),
+      ),
+    ];
+    expect(habitNeedsRelapseSuggestion(logs), isTrue);
+  });
+
+  test('weekly maintenance habits are not due daily', () {
+    final habit = _habit().copyWith(
+      trackingMode: HabitTrackingMode.weeklyMaintenance,
+    );
+    expect(habitIsDueOn(habit, DateTime(2026, 8, 20)), isFalse);
+  });
 }

@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../domain/habit_engine.dart';
+import '../../domain/models/habit_enums.dart';
 import '../models/habit_models.dart';
 
 class HabitRepository {
@@ -28,17 +29,33 @@ class HabitRepository {
     final logs = (logRows as List)
         .map((row) => HabitLog.fromJson(Map<String, dynamic>.from(row as Map)))
         .toList();
+
+    final weeklyRows = await _client
+        .from('habit_weekly_logs')
+        .select()
+        .inFilter('habit_id', ids)
+        .order('week_start_date', ascending: false);
+    final weeklyLogs = (weeklyRows as List)
+        .map(
+          (row) =>
+              HabitWeeklyLog.fromJson(Map<String, dynamic>.from(row as Map)),
+        )
+        .toList();
+
     return [
       for (final habit in habits)
         HabitSnapshot(
           habit: habit,
           logs: logs.where((log) => log.habitId == habit.id).toList(),
+          weeklyLogs:
+              weeklyLogs.where((log) => log.habitId == habit.id).toList(),
         ),
     ];
   }
 
   Future<Habit> insertHabit(Habit habit) async {
-    final row = await _client.from('habits').insert(habit.toJson()).select().single();
+    final row =
+        await _client.from('habits').insert(habit.toJson()).select().single();
     return Habit.fromJson(Map<String, dynamic>.from(row));
   }
 
@@ -47,7 +64,54 @@ class HabitRepository {
   }
 
   Future<void> archiveHabit(String id) async {
-    await _client.from('habits').update({'archived': true}).eq('id', id);
+    await _client.from('habits').update({
+      'archived': true,
+      'tracking_mode': HabitTrackingMode.archived.dbValue,
+    }).eq('id', id);
+  }
+
+  Future<Habit> graduateHabit(Habit habit, {DateTime? at}) async {
+    final when = at ?? DateTime.now();
+    final updated = habit.copyWith(
+      trackingMode: HabitTrackingMode.weeklyMaintenance,
+      graduatedAt: when,
+      archived: false,
+    );
+    await updateHabit(updated);
+    return updated;
+  }
+
+  Future<Habit> reactivateHabit(Habit habit, {DateTime? at}) async {
+    final when = at ?? DateTime.now();
+    final updated = habit.copyWith(
+      trackingMode: HabitTrackingMode.dailyActive,
+      lastRelapsedAt: when,
+      archived: false,
+    );
+    await updateHabit(updated);
+    return updated;
+  }
+
+  Future<HabitWeeklyLog> upsertWeeklyLog({
+    required String habitId,
+    required DateTime weekStart,
+    required WeeklyCheckinStatus status,
+    String? notes,
+  }) async {
+    final row = await _client
+        .from('habit_weekly_logs')
+        .upsert(
+          {
+            'habit_id': habitId,
+            'week_start_date': formatHabitDate(habitWeekStart(weekStart)),
+            'status': status.dbValue,
+            'notes': notes,
+          },
+          onConflict: 'habit_id,week_start_date',
+        )
+        .select()
+        .single();
+    return HabitWeeklyLog.fromJson(Map<String, dynamic>.from(row));
   }
 
   Future<HabitSnapshot> upsertLog({
@@ -103,6 +167,10 @@ class HabitRepository {
       freezeMonth: monthStart,
     );
     await updateHabit(updated);
-    return HabitSnapshot(habit: updated, logs: logs);
+    return HabitSnapshot(
+      habit: updated,
+      logs: logs,
+      weeklyLogs: snapshot.weeklyLogs,
+    );
   }
 }

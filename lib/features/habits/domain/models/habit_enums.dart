@@ -4,6 +4,102 @@ enum HabitTimeOfDay { morning, afternoon, evening, anytime }
 
 enum HabitType { boolean, measurable }
 
+enum HabitDifficulty { easy, hard }
+
+enum HabitTrackingMode { dailyActive, weeklyMaintenance, archived }
+
+enum WeeklyCheckinStatus { perfect, good, slipped }
+
+extension HabitDifficultyX on HabitDifficulty {
+  String get dbValue => this == HabitDifficulty.hard ? 'HARD' : 'EASY';
+
+  String get labelHe => this == HabitDifficulty.hard ? 'קשה' : 'קל';
+
+  /// Minimum calendar-day window before graduation can be evaluated.
+  int get evaluationWindowDays => this == HabitDifficulty.hard ? 60 : 30;
+
+  /// Required success rate inside the evaluation window (0–1).
+  double get successRateThreshold => 0.85;
+
+  int get minCompletionsForGraduation {
+    final window = evaluationWindowDays;
+    return (window * successRateThreshold).ceil();
+  }
+
+  static HabitDifficulty fromDb(String? raw) =>
+      raw == 'HARD' ? HabitDifficulty.hard : HabitDifficulty.easy;
+}
+
+extension HabitTrackingModeX on HabitTrackingMode {
+  String get dbValue {
+    switch (this) {
+      case HabitTrackingMode.dailyActive:
+        return 'DAILY_ACTIVE';
+      case HabitTrackingMode.weeklyMaintenance:
+        return 'WEEKLY_MAINTENANCE';
+      case HabitTrackingMode.archived:
+        return 'ARCHIVED';
+    }
+  }
+
+  String get labelHe {
+    switch (this) {
+      case HabitTrackingMode.dailyActive:
+        return 'מעקב יומי';
+      case HabitTrackingMode.weeklyMaintenance:
+        return 'תחזוקה שבועית';
+      case HabitTrackingMode.archived:
+        return 'בארכיון';
+    }
+  }
+
+  static HabitTrackingMode fromDb(String? raw) {
+    switch (raw) {
+      case 'WEEKLY_MAINTENANCE':
+        return HabitTrackingMode.weeklyMaintenance;
+      case 'ARCHIVED':
+        return HabitTrackingMode.archived;
+      default:
+        return HabitTrackingMode.dailyActive;
+    }
+  }
+}
+
+extension WeeklyCheckinStatusX on WeeklyCheckinStatus {
+  String get dbValue {
+    switch (this) {
+      case WeeklyCheckinStatus.perfect:
+        return 'PERFECT';
+      case WeeklyCheckinStatus.good:
+        return 'GOOD';
+      case WeeklyCheckinStatus.slipped:
+        return 'SLIPPED';
+    }
+  }
+
+  String get labelHe {
+    switch (this) {
+      case WeeklyCheckinStatus.perfect:
+        return 'מושלם (7/7)';
+      case WeeklyCheckinStatus.good:
+        return 'טוב (5–6/7)';
+      case WeeklyCheckinStatus.slipped:
+        return 'החלקה (<4/7)';
+    }
+  }
+
+  static WeeklyCheckinStatus fromDb(String? raw) {
+    switch (raw) {
+      case 'GOOD':
+        return WeeklyCheckinStatus.good;
+      case 'SLIPPED':
+        return WeeklyCheckinStatus.slipped;
+      default:
+        return WeeklyCheckinStatus.perfect;
+    }
+  }
+}
+
 extension HabitFrequencyX on HabitFrequency {
   String get dbValue {
     switch (this) {

@@ -20,6 +20,10 @@ class Habit {
     this.freezeDaysUsedThisMonth = 0,
     this.freezeMonth,
     this.archived = false,
+    this.difficulty = HabitDifficulty.easy,
+    this.trackingMode = HabitTrackingMode.dailyActive,
+    this.graduatedAt,
+    this.lastRelapsedAt,
     required this.createdAt,
   });
 
@@ -41,10 +45,27 @@ class Habit {
   final int freezeDaysUsedThisMonth;
   final DateTime? freezeMonth;
   final bool archived;
+  final HabitDifficulty difficulty;
+  final HabitTrackingMode trackingMode;
+  final DateTime? graduatedAt;
+  final DateTime? lastRelapsedAt;
   final DateTime createdAt;
+
+  bool get isDailyActive =>
+      !archived && trackingMode == HabitTrackingMode.dailyActive;
+
+  bool get isWeeklyMaintenance =>
+      !archived && trackingMode == HabitTrackingMode.weeklyMaintenance;
 
   factory Habit.fromJson(Map<String, dynamic> json) {
     final daysRaw = json['custom_days'];
+    final archived = json['archived'] as bool? ?? false;
+    var trackingMode =
+        HabitTrackingModeX.fromDb(json['tracking_mode'] as String?);
+    // Keep legacy `archived` flag in sync with tracking mode when reading.
+    if (archived && trackingMode != HabitTrackingMode.archived) {
+      trackingMode = HabitTrackingMode.archived;
+    }
     return Habit(
       id: json['id'] as String,
       title: json['title'] as String,
@@ -69,7 +90,15 @@ class Habit {
       freezeMonth: json['freeze_month'] == null
           ? null
           : DateTime.tryParse(json['freeze_month'] as String),
-      archived: json['archived'] as bool? ?? false,
+      archived: archived,
+      difficulty: HabitDifficultyX.fromDb(json['difficulty'] as String?),
+      trackingMode: trackingMode,
+      graduatedAt: json['graduated_at'] == null
+          ? null
+          : DateTime.tryParse(json['graduated_at'] as String),
+      lastRelapsedAt: json['last_relapsed_at'] == null
+          ? null
+          : DateTime.tryParse(json['last_relapsed_at'] as String),
       createdAt: DateTime.parse(json['created_at'] as String),
     );
   }
@@ -94,7 +123,11 @@ class Habit {
       'freeze_month': freezeMonth == null
           ? null
           : '${freezeMonth!.year.toString().padLeft(4, '0')}-${freezeMonth!.month.toString().padLeft(2, '0')}-01',
-      'archived': archived,
+      'archived': archived || trackingMode == HabitTrackingMode.archived,
+      'difficulty': difficulty.dbValue,
+      'tracking_mode': trackingMode.dbValue,
+      'graduated_at': graduatedAt?.toUtc().toIso8601String(),
+      'last_relapsed_at': lastRelapsedAt?.toUtc().toIso8601String(),
     };
   }
 
@@ -120,6 +153,12 @@ class Habit {
     int? freezeDaysUsedThisMonth,
     DateTime? freezeMonth,
     bool? archived,
+    HabitDifficulty? difficulty,
+    HabitTrackingMode? trackingMode,
+    DateTime? graduatedAt,
+    bool clearGraduatedAt = false,
+    DateTime? lastRelapsedAt,
+    bool clearLastRelapsedAt = false,
   }) {
     return Habit(
       id: id,
@@ -143,6 +182,13 @@ class Habit {
           freezeDaysUsedThisMonth ?? this.freezeDaysUsedThisMonth,
       freezeMonth: freezeMonth ?? this.freezeMonth,
       archived: archived ?? this.archived,
+      difficulty: difficulty ?? this.difficulty,
+      trackingMode: trackingMode ?? this.trackingMode,
+      graduatedAt:
+          clearGraduatedAt ? null : (graduatedAt ?? this.graduatedAt),
+      lastRelapsedAt: clearLastRelapsedAt
+          ? null
+          : (lastRelapsedAt ?? this.lastRelapsedAt),
       createdAt: createdAt,
     );
   }
@@ -195,21 +241,72 @@ class HabitLog {
   }
 }
 
+class HabitWeeklyLog {
+  const HabitWeeklyLog({
+    required this.id,
+    required this.habitId,
+    required this.weekStartDate,
+    required this.status,
+    this.notes,
+    required this.createdAt,
+  });
+
+  final String id;
+  final String habitId;
+  final DateTime weekStartDate;
+  final WeeklyCheckinStatus status;
+  final String? notes;
+  final DateTime createdAt;
+
+  factory HabitWeeklyLog.fromJson(Map<String, dynamic> json) {
+    return HabitWeeklyLog(
+      id: json['id'] as String,
+      habitId: json['habit_id'] as String,
+      weekStartDate: DateTime.parse(json['week_start_date'] as String),
+      status: WeeklyCheckinStatusX.fromDb(json['status'] as String?),
+      notes: json['notes'] as String?,
+      createdAt: DateTime.parse(json['created_at'] as String),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'habit_id': habitId,
+      'week_start_date': formatHabitDate(weekStartDate),
+      'status': status.dbValue,
+      'notes': notes,
+    };
+  }
+}
+
 String formatHabitDate(DateTime day) {
   final d = DateTime(day.year, day.month, day.day);
   return '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 }
 
 class HabitSnapshot {
-  const HabitSnapshot({required this.habit, required this.logs});
+  const HabitSnapshot({
+    required this.habit,
+    required this.logs,
+    this.weeklyLogs = const [],
+  });
 
   final Habit habit;
   final List<HabitLog> logs;
+  final List<HabitWeeklyLog> weeklyLogs;
 
   HabitLog? logOn(DateTime day) {
     final key = formatHabitDate(day);
     for (final log in logs) {
       if (log.dateKey == key) return log;
+    }
+    return null;
+  }
+
+  HabitWeeklyLog? weeklyLogFor(DateTime weekStart) {
+    final key = formatHabitDate(weekStart);
+    for (final log in weeklyLogs) {
+      if (formatHabitDate(log.weekStartDate) == key) return log;
     }
     return null;
   }

@@ -11,6 +11,7 @@ import '../../domain/models/habit_enums.dart';
 import '../../domain/providers/habit_providers.dart';
 import 'habit_form_screen.dart';
 import '../widgets/habit_checkin_tile.dart';
+import '../widgets/weekly_habit_tile.dart';
 
 class HabitsScreen extends ConsumerWidget {
   const HabitsScreen({super.key});
@@ -24,6 +25,86 @@ class HabitsScreen extends ConsumerWidget {
       context: context,
       form: HabitFormScreen(habit: habit),
     );
+  }
+
+  Future<void> _confirmGraduate(
+    BuildContext context,
+    WidgetRef ref,
+    HabitSnapshot snapshot,
+  ) async {
+    final eval = evaluateHabitGraduation(
+      habit: snapshot.habit,
+      logs: snapshot.logs,
+    );
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('לסיים מעקב יומי?'),
+        content: Text(
+          '«${snapshot.habit.title}» הגיע ל־${eval.completionsInWindow}/${eval.windowDays} '
+          '(≥${eval.requiredCompletions}).\n'
+          'המעבר לתחזוקה שבועית מסיר אותו משגרת היום.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('ביטול'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('סיום מעקב יומי'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await ref.read(habitsControllerProvider.notifier).graduate(snapshot);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('«${snapshot.habit.title}» עבר לתחזוקה שבועית')),
+      );
+    } catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('העברה נכשלה: $error')),
+      );
+    }
+  }
+
+  Future<void> _confirmReactivate(
+    BuildContext context,
+    WidgetRef ref,
+    HabitSnapshot snapshot,
+  ) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('לחזור למעקב יומי?'),
+        content: Text(
+          '«${snapshot.habit.title}» יחזור לשגרת היום ל־14+ ימים של איפוס.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('ביטול'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('הפעלה מחדש'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await ref.read(habitsControllerProvider.notifier).reactivate(snapshot);
+    } catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('הפעלה נכשלה: $error')),
+      );
+    }
   }
 
   @override
@@ -92,11 +173,27 @@ class HabitsScreen extends ConsumerWidget {
                 );
               }
 
-              final due = items
+              final daily = items
+                  .where((item) => item.habit.isDailyActive)
+                  .toList();
+              final graduated = items
+                  .where((item) => item.habit.isWeeklyMaintenance)
+                  .toList();
+              final due = daily
                   .where((item) => habitIsDueOn(item.habit, today))
                   .toList();
-              final rest = items
+              final restDaily = daily
                   .where((item) => !habitIsDueOn(item.habit, today))
+                  .toList();
+              final readyToGraduate = daily.where((item) {
+                return evaluateHabitGraduation(
+                  habit: item.habit,
+                  logs: item.logs,
+                  now: today,
+                ).eligible;
+              }).toList();
+              final relapseAlerts = graduated
+                  .where((item) => habitNeedsRelapseSuggestion(item.weeklyLogs))
                   .toList();
               final doneCount = due.where((item) {
                 final log = item.logOn(today);
@@ -121,6 +218,30 @@ class HabitsScreen extends ConsumerWidget {
                       ),
                     ),
                   _RoutineSummary(due: due.length, done: doneCount),
+                  if (readyToGraduate.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    for (final snapshot in readyToGraduate)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: _GraduationBanner(
+                          snapshot: snapshot,
+                          onGraduate: () =>
+                              _confirmGraduate(context, ref, snapshot),
+                        ),
+                      ),
+                  ],
+                  if (relapseAlerts.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    for (final snapshot in relapseAlerts)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: _RelapseBanner(
+                          snapshot: snapshot,
+                          onReactivate: () =>
+                              _confirmReactivate(context, ref, snapshot),
+                        ),
+                      ),
+                  ],
                   const SizedBox(height: 16),
                   const Text(
                     'שגרת היום',
@@ -132,7 +253,7 @@ class HabitsScreen extends ConsumerWidget {
                       child: Padding(
                         padding: EdgeInsets.all(16),
                         child: Text(
-                          'אין הרגלים מתוזמנים להיום.',
+                          'אין הרגלים במעקב יומי להיום.',
                           style: TextStyle(color: AppColors.muted),
                         ),
                       ),
@@ -148,13 +269,40 @@ class HabitsScreen extends ConsumerWidget {
                         ],
                       ),
                     ),
+                  if (graduated.isNotEmpty) ...[
+                    const SizedBox(height: 20),
+                    Text(
+                      'בוגרים · תחזוקה שבועית (${graduated.length})',
+                      style: const TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'ביקורת שבועית קצרה במקום צ׳קליסט יומי',
+                      style: TextStyle(color: AppColors.muted, fontSize: 13),
+                    ),
+                    const SizedBox(height: 8),
+                    for (final snapshot in graduated)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: WeeklyHabitTile(
+                          snapshot: snapshot,
+                          onReactivate: () =>
+                              _confirmReactivate(context, ref, snapshot),
+                          onOpen: () => _openForm(
+                            context,
+                            ref,
+                            habit: snapshot.habit,
+                          ),
+                        ),
+                      ),
+                  ],
                   const SizedBox(height: 20),
                   const Text(
-                    'כל ההרגלים',
+                    'מעקב יומי',
                     style: TextStyle(fontWeight: FontWeight.w800),
                   ),
                   const SizedBox(height: 8),
-                  for (final snapshot in [...due, ...rest])
+                  for (final snapshot in [...due, ...restDaily])
                     Padding(
                       padding: const EdgeInsets.only(bottom: 8),
                       child: _HabitCard(
@@ -164,6 +312,13 @@ class HabitsScreen extends ConsumerWidget {
                         onArchive: () => ref
                             .read(habitsControllerProvider.notifier)
                             .archive(snapshot.habit.id),
+                        onGraduate: evaluateHabitGraduation(
+                          habit: snapshot.habit,
+                          logs: snapshot.logs,
+                          now: today,
+                        ).eligible
+                            ? () => _confirmGraduate(context, ref, snapshot)
+                            : null,
                       ),
                     ),
                 ],
@@ -232,16 +387,89 @@ class _RoutineSummary extends StatelessWidget {
   }
 }
 
+class _GraduationBanner extends StatelessWidget {
+  const _GraduationBanner({
+    required this.snapshot,
+    required this.onGraduate,
+  });
+
+  final HabitSnapshot snapshot;
+  final VoidCallback onGraduate;
+
+  @override
+  Widget build(BuildContext context) {
+    final eval = evaluateHabitGraduation(
+      habit: snapshot.habit,
+      logs: snapshot.logs,
+    );
+    return Card(
+      color: AppColors.habits.withValues(alpha: 0.08),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
+        child: Row(
+          children: [
+            const Icon(Icons.emoji_events_outlined, color: AppColors.habits),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                '«${snapshot.habit.title}» מוכן לסיום מעקב יומי '
+                '(${eval.completionsInWindow}/${eval.windowDays})',
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+            ),
+            TextButton(onPressed: onGraduate, child: const Text('סיים')),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RelapseBanner extends StatelessWidget {
+  const _RelapseBanner({
+    required this.snapshot,
+    required this.onReactivate,
+  });
+
+  final HabitSnapshot snapshot;
+  final VoidCallback onReactivate;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      color: AppColors.warning.withValues(alpha: 0.1),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
+        child: Row(
+          children: [
+            const Icon(Icons.replay, color: AppColors.warning),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                '«${snapshot.habit.title}» — החלקה שבועיים ברצף. מומלץ איפוס יומי ל־14 יום.',
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+            ),
+            TextButton(onPressed: onReactivate, child: const Text('הפעל')),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _HabitCard extends StatelessWidget {
   const _HabitCard({
     required this.snapshot,
     required this.onOpen,
     required this.onArchive,
+    this.onGraduate,
   });
 
   final HabitSnapshot snapshot;
   final VoidCallback onOpen;
   final VoidCallback onArchive;
+  final VoidCallback? onGraduate;
 
   @override
   Widget build(BuildContext context) {
@@ -264,6 +492,7 @@ class _HabitCard extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       [
+                        habit.difficulty.labelHe,
                         habit.timeOfDay.labelHe,
                         habit.frequency.labelHe,
                         if (habit.habitType == HabitType.measurable &&
@@ -291,6 +520,12 @@ class _HabitCard extends StatelessWidget {
                   ],
                 ),
               ),
+              if (onGraduate != null)
+                IconButton(
+                  tooltip: 'סיום מעקב יומי',
+                  onPressed: onGraduate,
+                  icon: const Icon(Icons.emoji_events_outlined),
+                ),
               IconButton(
                 tooltip: 'ארכיון',
                 onPressed: onArchive,

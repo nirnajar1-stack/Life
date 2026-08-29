@@ -39,6 +39,7 @@ class _HabitFormScreenState extends ConsumerState<HabitFormScreen> {
   late HabitType _type;
   late HabitTimeOfDay _time;
   late HabitFrequency _frequency;
+  late HabitDifficulty _difficulty;
   late List<int> _customDays;
   bool _saving = false;
 
@@ -59,6 +60,7 @@ class _HabitFormScreenState extends ConsumerState<HabitFormScreen> {
     _type = habit?.habitType ?? HabitType.boolean;
     _time = habit?.timeOfDay ?? HabitTimeOfDay.morning;
     _frequency = habit?.frequency ?? HabitFrequency.daily;
+    _difficulty = habit?.difficulty ?? HabitDifficulty.easy;
     _customDays = [...(habit?.customDays ?? const [1, 3, 5])];
   }
 
@@ -113,6 +115,7 @@ class _HabitFormScreenState extends ConsumerState<HabitFormScreen> {
           _type != HabitType.measurable || _unit.text.trim().isEmpty,
       timeOfDay: _time,
       frequency: _frequency,
+      difficulty: _difficulty,
       customDays: _frequency == HabitFrequency.specificDays
           ? _customDays
           : const [],
@@ -237,6 +240,25 @@ class _HabitFormScreenState extends ConsumerState<HabitFormScreen> {
                 ],
               ),
             ],
+            const SizedBox(height: 16),
+            const Text('קושי', style: TextStyle(fontWeight: FontWeight.w700)),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final value in HabitDifficulty.values)
+                  ChoiceChip(
+                    label: Text(
+                      value == HabitDifficulty.easy
+                          ? 'קל · סיום אחרי 30 יום'
+                          : 'קשה · סיום אחרי 60 יום',
+                    ),
+                    selected: _difficulty == value,
+                    onSelected: (_) => setState(() => _difficulty = value),
+                  ),
+              ],
+            ),
             const SizedBox(height: 16),
             const Text('שעת היום', style: TextStyle(fontWeight: FontWeight.w700)),
             const SizedBox(height: 8),
