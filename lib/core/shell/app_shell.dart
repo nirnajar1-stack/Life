@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../money/money_hub_screen.dart';
+import '../../features/calendar/presentation/screens/calendar_screen.dart';
 import '../../features/habits/presentation/screens/habits_screen.dart';
 import '../../features/tasks/domain/models/task_enums.dart';
 import '../../features/tasks/domain/providers/task_providers.dart';
@@ -29,9 +30,9 @@ class AppShell extends ConsumerWidget {
       HomeScreen(),
       TasksListScreen(),
       HabitsScreen(),
+      CalendarScreen(),
       MoneyHubScreen(),
     ];
-
     Widget badgeIcon({
       required IconData outlined,
       required IconData selected,
@@ -97,6 +98,11 @@ class AppShell extends ConsumerWidget {
                       label: Text('הרגלים'),
                     ),
                     const NavigationRailDestination(
+                      icon: Icon(Icons.calendar_month_outlined),
+                      selectedIcon: Icon(Icons.calendar_month),
+                      label: Text('יומן'),
+                    ),
+                    const NavigationRailDestination(
                       icon: Icon(Icons.account_balance_wallet_outlined),
                       selectedIcon: Icon(Icons.account_balance_wallet),
                       label: Text('כסף'),
@@ -132,6 +138,11 @@ class AppShell extends ConsumerWidget {
                   icon: Icon(Icons.loop_outlined),
                   selectedIcon: Icon(Icons.loop),
                   label: 'הרגלים',
+                ),
+                const NavigationDestination(
+                  icon: Icon(Icons.calendar_month_outlined),
+                  selectedIcon: Icon(Icons.calendar_month),
+                  label: 'יומן',
                 ),
                 const NavigationDestination(
                   icon: Icon(Icons.account_balance_wallet_outlined),

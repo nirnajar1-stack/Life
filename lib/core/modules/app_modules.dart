@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../money/money_hub_screen.dart';
+import '../../features/calendar/presentation/screens/calendar_screen.dart';
 import '../../features/tasks/presentation/screens/tasks_list_screen.dart';
 import 'app_module.dart';
 
@@ -18,6 +19,14 @@ const List<AppModule> appModules = [
     builder: _buildTasks,
   ),
   AppModule(
+    id: 'calendar',
+    title: 'יומן',
+    subtitle: 'אירועים מטלגרם ו־Google',
+    icon: Icons.calendar_month_outlined,
+    color: Color(0xFF0F766E),
+    builder: _buildCalendar,
+  ),
+  AppModule(
     id: 'expenses',
     title: 'כסף',
     subtitle: 'הוצאות, הכנסות ותזרים',
@@ -28,5 +37,7 @@ const List<AppModule> appModules = [
 ];
 
 Widget _buildTasks(BuildContext context) => const TasksListScreen();
+
+Widget _buildCalendar(BuildContext context) => const CalendarScreen();
 
 Widget _buildExpenses(BuildContext context) => const MoneyHubScreen();

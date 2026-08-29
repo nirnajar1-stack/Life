@@ -5,6 +5,9 @@ import 'package:intl/intl.dart' hide TextDirection;
 import '../../features/expenses/domain/providers/expense_providers.dart';
 import '../../features/income/domain/providers/income_providers.dart';
 import '../../features/expenses/presentation/screens/expense_form_screen.dart';
+import '../../features/calendar/domain/providers/calendar_providers.dart';
+import '../../features/calendar/presentation/screens/calendar_event_form_screen.dart';
+import '../../features/calendar/presentation/screens/calendar_screen.dart';
 import '../../features/habits/data/models/habit_models.dart';
 import '../../features/habits/domain/habit_engine.dart';
 import '../../features/habits/domain/providers/habit_providers.dart';
@@ -63,6 +66,14 @@ class HomeScreen extends ConsumerWidget {
       context: context,
       form: const HabitFormScreen(),
     );
+  }
+
+  Future<void> _openEventForm(BuildContext context, WidgetRef ref) async {
+    await showAdaptiveForm(
+      context: context,
+      form: const CalendarEventFormScreen(),
+    );
+    ref.read(upcomingCalendarEventsProvider.notifier).reload();
   }
 
   Future<void> _toggleTask(
@@ -138,6 +149,7 @@ class HomeScreen extends ConsumerWidget {
         onRefresh: () async {
           ref.read(tasksControllerProvider.notifier).reload();
           ref.read(habitsControllerProvider.notifier).reload();
+          ref.read(upcomingCalendarEventsProvider.notifier).reload();
           ref.invalidate(expensesRawProvider);
           ref.invalidate(expensesSummaryProvider);
           ref.invalidate(incomesRawProvider);
@@ -196,16 +208,24 @@ class HomeScreen extends ConsumerWidget {
                       ref.read(appTabProvider.notifier).state = AppTab.expenses,
                   onOpenHabits: () =>
                       ref.read(appTabProvider.notifier).state = AppTab.habits,
+                  onOpenCalendar: () =>
+                      ref.read(appTabProvider.notifier).state = AppTab.calendar,
                 ),
                 const SizedBox(height: 12),
                 _QuickActions(
                   onAddTask: () => _openTaskForm(context, ref),
                   onAddExpense: () => _openExpenseForm(context, ref),
                   onAddHabit: () => _openHabitForm(context, ref),
+                  onAddEvent: () => _openEventForm(context, ref),
                 ),
                 const SizedBox(height: 12),
                 const NotificationCard(),
                 const SizedBox(height: 24),
+                UpcomingEventsPanel(
+                  onOpenAll: () =>
+                      ref.read(appTabProvider.notifier).state = AppTab.calendar,
+                ),
+                const SizedBox(height: 12),
                 _DigestColumns(
                   digest: digest,
                   habits: habitsAsync.valueOrNull ?? const [],
@@ -306,6 +326,7 @@ class _BriefingCard extends StatelessWidget {
     required this.onOpenTasks,
     required this.onOpenExpenses,
     required this.onOpenHabits,
+    required this.onOpenCalendar,
   });
 
   final HomeDigest digest;
@@ -313,6 +334,7 @@ class _BriefingCard extends StatelessWidget {
   final VoidCallback onOpenTasks;
   final VoidCallback onOpenExpenses;
   final VoidCallback onOpenHabits;
+  final VoidCallback onOpenCalendar;
 
   @override
   Widget build(BuildContext context) {
@@ -376,6 +398,12 @@ class _BriefingCard extends StatelessWidget {
                       : '${digest.habitsDoneToday}/${digest.habitsDueToday}',
                   color: AppColors.habits,
                   onTap: onOpenHabits,
+                ),
+                _SummaryChip(
+                  label: 'יומן',
+                  value: '↗',
+                  color: AppColors.calendar,
+                  onTap: onOpenCalendar,
                 ),
                 _SummaryChip(
                   label: 'נטו',
@@ -454,46 +482,81 @@ class _QuickActions extends StatelessWidget {
     required this.onAddTask,
     required this.onAddExpense,
     required this.onAddHabit,
+    required this.onAddEvent,
   });
 
   final VoidCallback onAddTask;
   final VoidCallback onAddExpense;
   final VoidCallback onAddHabit;
+  final VoidCallback onAddEvent;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    return Wrap(
+      spacing: 10,
+      runSpacing: 10,
       children: [
-        Expanded(
-          child: FilledButton.icon(
-            onPressed: onAddTask,
-            icon: const Icon(Icons.add_task, size: 20),
-            label: const Text('משימה'),
-          ),
+        _QuickActionButton(
+          onPressed: onAddTask,
+          icon: Icons.add_task,
+          label: 'משימה',
+          filled: true,
         ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: FilledButton.tonalIcon(
-            onPressed: onAddHabit,
-            icon: const Icon(Icons.loop, size: 20),
-            style: FilledButton.styleFrom(
-              foregroundColor: AppColors.habits,
-            ),
-            label: const Text('הרגל'),
-          ),
+        _QuickActionButton(
+          onPressed: onAddEvent,
+          icon: Icons.event_available,
+          label: 'אירוע',
+          color: AppColors.calendar,
         ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: FilledButton.tonalIcon(
-            onPressed: onAddExpense,
-            icon: const Icon(Icons.add_card, size: 20),
-            style: FilledButton.styleFrom(
-              foregroundColor: AppColors.expenses,
-            ),
-            label: const Text('הוצאה'),
-          ),
+        _QuickActionButton(
+          onPressed: onAddHabit,
+          icon: Icons.loop,
+          label: 'הרגל',
+          color: AppColors.habits,
+        ),
+        _QuickActionButton(
+          onPressed: onAddExpense,
+          icon: Icons.add_card,
+          label: 'הוצאה',
+          color: AppColors.expenses,
         ),
       ],
+    );
+  }
+}
+
+class _QuickActionButton extends StatelessWidget {
+  const _QuickActionButton({
+    required this.onPressed,
+    required this.icon,
+    required this.label,
+    this.color,
+    this.filled = false,
+  });
+
+  final VoidCallback onPressed;
+  final IconData icon;
+  final String label;
+  final Color? color;
+  final bool filled;
+
+  @override
+  Widget build(BuildContext context) {
+    final child = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 18),
+        const SizedBox(width: 6),
+        Text(label),
+      ],
+    );
+    if (filled) {
+      return FilledButton(onPressed: onPressed, child: child);
+    }
+    return FilledButton.tonal(
+      onPressed: onPressed,
+      style: FilledButton.styleFrom(foregroundColor: color),
+      child: child,
     );
   }
 }
