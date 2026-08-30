@@ -19,6 +19,7 @@ class AppColors {
   static const Color shared = Color(0xFF7C3AED);
   static const Color habits = Color(0xFF7C3AED);
   static const Color calendar = Color(0xFF0F766E);
+  static const Color development = Color(0xFF9333EA);
 }
 
 class AppTheme {
