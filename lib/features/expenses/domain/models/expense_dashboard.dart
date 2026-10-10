@@ -39,6 +39,19 @@ class MonthSpend {
   DateTime get monthStart => DateTime(year, month);
 }
 
+/// One calendar day aggregate — used for variable-expense daily chart.
+class DaySpend {
+  const DaySpend({
+    required this.date,
+    required this.total,
+    required this.itemCount,
+  });
+
+  final DateTime date;
+  final double total;
+  final int itemCount;
+}
+
 /// Side-by-side category comparison between two months.
 class CategoryMonthCompare {
   const CategoryMonthCompare({
@@ -69,6 +82,7 @@ class ExpenseDashboard {
     required this.previousMonthTotal,
     required this.averageMonthTotal,
     required this.monthlyTrend,
+    required this.variableDailyTrend,
     required this.parentCategories,
     required this.rawCategories,
     required this.variableTotal,
@@ -96,6 +110,9 @@ class ExpenseDashboard {
 
   /// Newest months first.
   final List<MonthSpend> monthlyTrend;
+
+  /// Chronological daily totals for variable expenses only (within period).
+  final List<DaySpend> variableDailyTrend;
 
   final List<NamedAmount> parentCategories;
 
@@ -134,6 +151,7 @@ class ExpenseDashboard {
         previousMonthTotal: 0,
         averageMonthTotal: 0,
         monthlyTrend: const [],
+        variableDailyTrend: const [],
         parentCategories: const [],
         rawCategories: const [],
         variableTotal: 0,
@@ -226,6 +244,8 @@ ExpenseDashboard buildExpenseDashboard(
   final Map<String, int> sourceCounts = {};
   final Map<String, double> thisMonthByParent = {};
   final Map<String, double> prevMonthByParent = {};
+  final Map<String, double> variableDayTotals = {};
+  final Map<String, int> variableDayItems = {};
 
   for (final e in expenses) {
     final personal = e.actualAmount;
@@ -271,6 +291,12 @@ ExpenseDashboard buildExpenseDashboard(
       case ExpenseNature.variable:
         variableTotal += personal;
         variableCount++;
+        final dayKey =
+            '${e.createdAt.year}-${e.createdAt.month.toString().padLeft(2, '0')}-'
+            '${e.createdAt.day.toString().padLeft(2, '0')}';
+        variableDayTotals[dayKey] =
+            (variableDayTotals[dayKey] ?? 0) + personal;
+        variableDayItems[dayKey] = (variableDayItems[dayKey] ?? 0) + 1;
     }
 
     final source = _cleanSource(e.source);
@@ -287,6 +313,20 @@ ExpenseDashboard buildExpenseDashboard(
       total: monthTotals[key]!,
       itemCount: monthItems[key] ?? 0,
       transactionCount: monthTxKeys[key]?.length ?? 0,
+    );
+  }).toList();
+
+  final dayKeys = variableDayTotals.keys.toList()..sort();
+  final variableDailyTrend = dayKeys.map((key) {
+    final parts = key.split('-');
+    return DaySpend(
+      date: DateTime(
+        int.parse(parts[0]),
+        int.parse(parts[1]),
+        int.parse(parts[2]),
+      ),
+      total: variableDayTotals[key]!,
+      itemCount: variableDayItems[key] ?? 0,
     );
   }).toList();
 
@@ -354,6 +394,10 @@ ExpenseDashboard buildExpenseDashboard(
     previousMonthTotal: previousMonthTotal,
     averageMonthTotal: averageMonthTotal,
     monthlyTrend: monthlyTrend.take(8).toList(),
+    // Cap chart density — prefer recent days when the window is large.
+    variableDailyTrend: variableDailyTrend.length <= 45
+        ? variableDailyTrend
+        : variableDailyTrend.sublist(variableDailyTrend.length - 45),
     parentCategories: parentCategories,
     rawCategories: rawCategories.take(8).toList(),
     variableTotal: variableTotal,

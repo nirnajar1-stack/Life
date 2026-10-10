@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 
+import '../../../../core/theme/app_theme.dart';
 import '../../data/models/expense_model.dart';
 import '../../domain/models/expense_category_taxonomy.dart';
 import '../../domain/models/expense_dashboard.dart';
@@ -72,6 +73,10 @@ class ExpensesDashboardView extends ConsumerWidget {
         ),
         const SizedBox(height: 14),
         _KpiStrip(dashboard: dashboard),
+        const SizedBox(height: 20),
+        const _SectionTitle('הוצאה יומית · משתנות בלבד'),
+        const SizedBox(height: 8),
+        _VariableDailyTrendCard(days: dashboard.variableDailyTrend),
         const SizedBox(height: 20),
         LayoutBuilder(
           builder: (context, constraints) {
@@ -180,7 +185,7 @@ class ExpensesDashboardView extends ConsumerWidget {
   }
 }
 
-class _PeriodFilter extends StatelessWidget {
+class _PeriodFilter extends ConsumerWidget {
   const _PeriodFilter({
     required this.selected,
     required this.onChanged,
@@ -190,18 +195,87 @@ class _PeriodFilter extends StatelessWidget {
   final ValueChanged<ExpensePeriod> onChanged;
 
   @override
-  Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
+  Widget build(BuildContext context, WidgetRef ref) {
+    final customStart = ref.watch(expenseCustomStartProvider);
+    final customEnd = ref.watch(expenseCustomEndProvider);
+    final dateFormat = DateFormat('dd/MM/yyyy', 'he');
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        for (final period in ExpensePeriod.values)
-          ChoiceChip(
-            showCheckmark: false,
-            label: Text(period.label),
-            selected: selected == period,
-            onSelected: (_) => onChanged(period),
+        Text(
+          'תקופת זמן',
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final period in ExpensePeriod.values)
+              ChoiceChip(
+                showCheckmark: false,
+                label: Text(period.label),
+                selected: selected == period,
+                onSelected: (_) => onChanged(period),
+              ),
+          ],
+        ),
+        if (selected == ExpensePeriod.custom) ...[
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: customStart ?? DateTime.now(),
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime(2100),
+                      helpText: 'מתאריך',
+                    );
+                    if (picked != null) {
+                      ref.read(expenseCustomStartProvider.notifier).state =
+                          picked;
+                    }
+                  },
+                  icon: const Icon(Icons.calendar_today_outlined, size: 16),
+                  label: Text(
+                    customStart == null
+                        ? 'מתאריך'
+                        : 'מ-${dateFormat.format(customStart)}',
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: customEnd ?? DateTime.now(),
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime(2100),
+                      helpText: 'עד תאריך',
+                    );
+                    if (picked != null) {
+                      ref.read(expenseCustomEndProvider.notifier).state = picked;
+                    }
+                  },
+                  icon: const Icon(Icons.event_outlined, size: 16),
+                  label: Text(
+                    customEnd == null
+                        ? 'עד תאריך'
+                        : 'עד ${dateFormat.format(customEnd)}',
+                  ),
+                ),
+              ),
+            ],
           ),
+        ],
       ],
     );
   }
@@ -521,6 +595,119 @@ class _CompareTotal extends StatelessWidget {
           style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
       ],
+    );
+  }
+}
+
+class _VariableDailyTrendCard extends StatelessWidget {
+  const _VariableDailyTrendCard({required this.days});
+
+  final List<DaySpend> days;
+
+  @override
+  Widget build(BuildContext context) {
+    if (days.isEmpty) {
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Text(
+            'אין הוצאות משתנות בתקופה שנבחרה.',
+            style: TextStyle(color: Colors.grey.shade700),
+          ),
+        ),
+      );
+    }
+
+    final maxTotal =
+        days.map((d) => d.total).fold<double>(0, (a, b) => a > b ? a : b);
+    final safeMax = maxTotal <= 0 ? 1.0 : maxTotal;
+    final dayFormat = DateFormat('d/M', 'he');
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 16, 12, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'סה״כ משתנה: ${_currency.format(days.fold<double>(0, (s, d) => s + d.total))} · ${days.length} ימים',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Colors.grey.shade700,
+                    fontWeight: FontWeight.w600,
+                  ),
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              height: 150,
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    for (final day in days)
+                      SizedBox(
+                        width: days.length <= 14 ? 36 : 28,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 2),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              Text(
+                                day.total >= 1000
+                                    ? '${(day.total / 1000).toStringAsFixed(1)}k'
+                                    : day.total.toStringAsFixed(0),
+                                style: const TextStyle(fontSize: 9),
+                              ),
+                              const SizedBox(height: 4),
+                              Flexible(
+                                child: FractionallySizedBox(
+                                  heightFactor:
+                                      (day.total / safeMax).clamp(0.05, 1),
+                                  widthFactor: 1,
+                                  child: DecoratedBox(
+                                    decoration: BoxDecoration(
+                                      color: AppColors.expenses
+                                          .withValues(alpha: 0.85),
+                                      borderRadius:
+                                          const BorderRadius.vertical(
+                                        top: Radius.circular(6),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 6),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  for (final day in days)
+                    SizedBox(
+                      width: days.length <= 14 ? 36 : 28,
+                      child: Text(
+                        dayFormat.format(day.date),
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 9,
+                          color: Colors.grey.shade700,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
