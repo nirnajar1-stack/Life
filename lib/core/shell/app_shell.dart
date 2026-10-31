@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../money/money_hub_screen.dart';
 import '../../features/calendar/presentation/screens/calendar_screen.dart';
 import '../../features/habits/presentation/screens/habits_screen.dart';
+import '../../features/personal_dev/presentation/screens/personal_dev_screen.dart';
 import '../../features/tasks/domain/models/task_enums.dart';
 import '../../features/tasks/domain/providers/task_providers.dart';
 import '../../features/tasks/presentation/screens/tasks_list_screen.dart';
@@ -30,6 +31,7 @@ class AppShell extends ConsumerWidget {
       HomeScreen(),
       TasksListScreen(),
       HabitsScreen(),
+      PersonalDevScreen(),
       CalendarScreen(),
       MoneyHubScreen(),
     ];
@@ -98,6 +100,11 @@ class AppShell extends ConsumerWidget {
                       label: Text('הרגלים'),
                     ),
                     const NavigationRailDestination(
+                      icon: Icon(Icons.psychology_outlined),
+                      selectedIcon: Icon(Icons.psychology),
+                      label: Text('פיתוח'),
+                    ),
+                    const NavigationRailDestination(
                       icon: Icon(Icons.calendar_month_outlined),
                       selectedIcon: Icon(Icons.calendar_month),
                       label: Text('יומן'),
@@ -138,6 +145,11 @@ class AppShell extends ConsumerWidget {
                   icon: Icon(Icons.loop_outlined),
                   selectedIcon: Icon(Icons.loop),
                   label: 'הרגלים',
+                ),
+                const NavigationDestination(
+                  icon: Icon(Icons.psychology_outlined),
+                  selectedIcon: Icon(Icons.psychology),
+                  label: 'פיתוח',
                 ),
                 const NavigationDestination(
                   icon: Icon(Icons.calendar_month_outlined),
