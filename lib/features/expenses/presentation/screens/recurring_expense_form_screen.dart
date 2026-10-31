@@ -33,6 +33,7 @@ class _RecurringExpenseFormScreenState
   late final TextEditingController _subCategory;
   late final TextEditingController _dayOfMonth;
   late DateTime _startDate;
+  DateTime? _endDate;
   late String _parentCategory;
   late bool _isShared;
   late int _sharedSplit;
@@ -54,6 +55,7 @@ class _RecurringExpenseFormScreenState
     _subCategory = TextEditingController(text: t?.subCategory ?? '');
     _dayOfMonth = TextEditingController(text: '${t?.dayOfMonth ?? 1}');
     _startDate = t?.startDate ?? DateTime.now();
+    _endDate = t?.endDate;
     _parentCategory = t?.category ?? ExpenseCategoryTaxonomy.housing;
     _isShared = t?.isShared ?? false;
     _amountVariable = t?.amountVariable ?? false;
@@ -77,7 +79,26 @@ class _RecurringExpenseFormScreenState
       firstDate: DateTime(2020),
       lastDate: DateTime(2100),
     );
-    if (picked != null) setState(() => _startDate = picked);
+    if (picked == null) return;
+    setState(() {
+      _startDate = picked;
+      if (_endDate != null && _endDate!.isBefore(picked)) {
+        _endDate = picked;
+      }
+    });
+  }
+
+  Future<void> _pickEndDate() async {
+    final initial = _endDate ??
+        DateTime(_startDate.year, _startDate.month + 6, _startDate.day);
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initial.isBefore(_startDate) ? _startDate : initial,
+      firstDate: _startDate,
+      lastDate: DateTime(2100),
+      helpText: 'עד מתי תמשיך ההוצאה',
+    );
+    if (picked != null) setState(() => _endDate = picked);
   }
 
   Future<void> _save() async {
@@ -123,6 +144,8 @@ class _RecurringExpenseFormScreenState
       sharedExp: sharedValue,
       amountVariable: _amountVariable,
       startDate: _startDate,
+      endDate: _endDate,
+      clearEndDate: _endDate == null,
     );
 
     try {
@@ -266,6 +289,38 @@ class _RecurringExpenseFormScreenState
                         border: OutlineInputBorder(),
                       ),
                       child: Text(_dateFormat.format(_startDate)),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  InkWell(
+                    onTap: _pickEndDate,
+                    child: InputDecorator(
+                      decoration: InputDecoration(
+                        labelText: 'עד תאריך (אופציונלי)',
+                        helperText: _endDate == null
+                            ? 'ללא סיום — תמשיך כל עוד פעילה'
+                            : 'אפשר להאריך או לנקות ללא סיום',
+                        border: const OutlineInputBorder(),
+                        suffixIcon: _endDate == null
+                            ? const Icon(Icons.event_outlined)
+                            : IconButton(
+                                tooltip: 'ללא סיום',
+                                onPressed: () =>
+                                    setState(() => _endDate = null),
+                                icon: const Icon(Icons.clear),
+                              ),
+                      ),
+                      child: Text(
+                        _endDate == null
+                            ? 'ללא סיום'
+                            : _dateFormat.format(_endDate!),
+                        style: TextStyle(
+                          color: _endDate == null
+                              ? AppColors.muted
+                              : AppColors.ink,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 12),

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 
 import '../../../../core/layout/app_layout.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/app_filter_chips.dart';
 import '../../data/models/expense_model.dart';
 import '../../domain/models/expense_category_taxonomy.dart';
@@ -75,6 +76,24 @@ class ExpensesDashboardView extends ConsumerWidget {
         const SizedBox(height: 14),
         _KpiStrip(dashboard: dashboard),
         const SizedBox(height: 20),
+        const _SectionTitle('קצב יומי'),
+        const SizedBox(height: 4),
+        Text(
+          'כמה יוצא בכל יום — ומה היום החריג.',
+          style: TextStyle(color: AppColors.muted, fontSize: 12),
+        ),
+        const SizedBox(height: 8),
+        _DailyBurnCard(dashboard: dashboard),
+        const SizedBox(height: 20),
+        const _SectionTitle('קבוע מול משתנה · לפי חודש'),
+        const SizedBox(height: 4),
+        Text(
+          'רצפת ההתחייבויות (קבוע + תשלומים) מול מה שנשאר לגמישות.',
+          style: TextStyle(color: AppColors.muted, fontSize: 12),
+        ),
+        const SizedBox(height: 8),
+        _MonthlyNatureStackCard(months: dashboard.monthlyTrend),
+        const SizedBox(height: 20),
         LayoutBuilder(
           builder: (context, constraints) {
             final compare = _MonthCompareCard(
@@ -95,7 +114,7 @@ class ExpensesDashboardView extends ConsumerWidget {
                   const SizedBox(height: 8),
                   compare,
                   const SizedBox(height: 20),
-                  const _SectionTitle('מגמת הוצאות חודשית'),
+                  const _SectionTitle('מגמת סה״כ חודשית'),
                   const SizedBox(height: 8),
                   trend,
                 ],
@@ -121,7 +140,7 @@ class ExpensesDashboardView extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      const _SectionTitle('מגמת הוצאות חודשית'),
+                      const _SectionTitle('מגמת סה״כ חודשית'),
                       const SizedBox(height: 8),
                       trend,
                     ],
@@ -137,7 +156,7 @@ class ExpensesDashboardView extends ConsumerWidget {
         _ShareBars(
           items: dashboard.parentCategories,
           grandTotal: dashboard.grandTotal,
-          color: const Color(0xFF1976D2),
+          color: AppColors.income,
         ),
         const SizedBox(height: 12),
         ExpansionTile(
@@ -155,7 +174,7 @@ class ExpensesDashboardView extends ConsumerWidget {
           ],
         ),
         const SizedBox(height: 12),
-        _SectionTitle('משתנה · קבועה · תשלומים'),
+        _SectionTitle('תמהיל התקופה · משתנה / קבועה / תשלומים'),
         const SizedBox(height: 8),
         _NatureSplitCard(dashboard: dashboard),
         const SizedBox(height: 20),
@@ -164,7 +183,7 @@ class ExpensesDashboardView extends ConsumerWidget {
         _ShareBars(
           items: dashboard.bySource,
           grandTotal: dashboard.grandTotal,
-          color: const Color(0xFF6A1B9A),
+          color: AppColors.shared,
         ),
         const SizedBox(height: 20),
         _SectionTitle('התנועות הגדולות'),
@@ -524,6 +543,359 @@ class _CompareTotal extends StatelessWidget {
   }
 }
 
+class _DailyBurnCard extends StatelessWidget {
+  const _DailyBurnCard({required this.dashboard});
+
+  final ExpenseDashboard dashboard;
+
+  @override
+  Widget build(BuildContext context) {
+    final days = dashboard.dailyTrend;
+    if (days.isEmpty) {
+      return const SoftCard(
+        padding: EdgeInsets.all(AppSpacing.md),
+        child: Text('אין נתונים יומיים לתקופה.', style: TextStyle(color: AppColors.muted)),
+      );
+    }
+
+    final maxTotal =
+        days.map((d) => d.total).fold<double>(0, (a, b) => a > b ? a : b);
+    final safeMax = maxTotal <= 0 ? 1.0 : maxTotal;
+    final avg = dashboard.averageDailySpend;
+
+    return SoftCard(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.md,
+        AppSpacing.md,
+        AppSpacing.sm + AppSpacing.xs,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Wrap(
+            spacing: AppSpacing.sm,
+            runSpacing: AppSpacing.sm,
+            children: [
+              _InsightChip(
+                label: 'ממוצע יומי',
+                value: _currency.format(avg),
+              ),
+              _InsightChip(
+                label: 'ימי פעילות',
+                value: '${dashboard.daysWithSpend}/${days.length}',
+              ),
+              if (dashboard.peakDaySpend > 0)
+                _InsightChip(
+                  label: 'שיא · ${dashboard.peakDayLabel}',
+                  value: _currency.format(dashboard.peakDaySpend),
+                ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          SizedBox(
+            height: 132,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                for (final day in days)
+                  Expanded(
+                    child: Tooltip(
+                      message:
+                          '${day.date.day}/${day.date.month}: ${_currency.format(day.total)}'
+                          '${day.itemCount > 0 ? ' · ${day.itemCount} פריטים' : ''}',
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 1),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            Flexible(
+                              child: FractionallySizedBox(
+                                heightFactor: day.total <= 0
+                                    ? 0.03
+                                    : (day.total / safeMax).clamp(0.06, 1),
+                                widthFactor: 1,
+                                child: DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    color: day.total <= 0
+                                        ? AppColors.line
+                                        : day.total >= safeMax * 0.85 &&
+                                                safeMax > 0
+                                            ? AppColors.warning
+                                            : AppColors.expenses,
+                                    borderRadius: const BorderRadius.vertical(
+                                      top: Radius.circular(4),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Row(
+            children: [
+              Text(
+                '${days.first.date.day}/${days.first.date.month}',
+                style: const TextStyle(fontSize: 11, color: AppColors.muted),
+              ),
+              const Spacer(),
+              Text(
+                '${days.last.date.day}/${days.last.date.month}',
+                style: const TextStyle(fontSize: 11, color: AppColors.muted),
+              ),
+            ],
+          ),
+          if (avg > 0) ...[
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              'קצב נוכחי ≈ ${_currency.format(avg)} ליום. '
+              'ימים חמים (כתום) סוחבים את הממוצע למעלה.',
+              style: const TextStyle(
+                fontSize: 12,
+                color: AppColors.muted,
+                height: 1.35,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _MonthlyNatureStackCard extends StatelessWidget {
+  const _MonthlyNatureStackCard({required this.months});
+
+  final List<MonthSpend> months;
+
+  @override
+  Widget build(BuildContext context) {
+    if (months.isEmpty) {
+      return const SoftCard(
+        padding: EdgeInsets.all(AppSpacing.md),
+        child: Text('אין נתונים חודשיים.', style: TextStyle(color: AppColors.muted)),
+      );
+    }
+
+    final chronological = months.reversed.toList();
+    final maxTotal = chronological
+        .map((m) => m.total)
+        .fold<double>(0, (a, b) => a > b ? a : b);
+    final safeMax = maxTotal <= 0 ? 1.0 : maxTotal;
+    final latest = chronological.last;
+    final committedShare = latest.total <= 0
+        ? 0.0
+        : (latest.committedTotal / latest.total).clamp(0.0, 1.0);
+
+    return SoftCard(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.md,
+        AppSpacing.md,
+        AppSpacing.sm + AppSpacing.xs,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Wrap(
+            spacing: AppSpacing.sm,
+            runSpacing: AppSpacing.sm,
+            children: const [
+              _LegendDot(color: AppColors.primary, label: 'קבוע'),
+              _LegendDot(color: AppColors.warning, label: 'תשלומים'),
+              _LegendDot(color: AppColors.expenses, label: 'משתנה'),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          SizedBox(
+            height: 168,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                for (final m in chronological)
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 3),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          Text(
+                            _compactMoney(m.total),
+                            style: const TextStyle(fontSize: 10),
+                          ),
+                          const SizedBox(height: 4),
+                          Flexible(
+                            child: FractionallySizedBox(
+                              heightFactor:
+                                  (m.total / safeMax).clamp(0.08, 1),
+                              widthFactor: 1,
+                              alignment: Alignment.bottomCenter,
+                              child: ClipRRect(
+                                borderRadius: const BorderRadius.vertical(
+                                  top: Radius.circular(8),
+                                ),
+                                child: Column(
+                                  children: [
+                                    if (m.variableTotal > 0)
+                                      Expanded(
+                                        flex: _stackFlex(m.variableTotal, m.total),
+                                        child: Container(color: AppColors.expenses),
+                                      ),
+                                    if (m.installmentTotal > 0)
+                                      Expanded(
+                                        flex: _stackFlex(
+                                            m.installmentTotal, m.total),
+                                        child: Container(color: AppColors.warning),
+                                      ),
+                                    if (m.fixedTotal > 0)
+                                      Expanded(
+                                        flex: _stackFlex(m.fixedTotal, m.total),
+                                        child: Container(color: AppColors.primary),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Row(
+            children: [
+              for (final m in chronological)
+                Expanded(
+                  child: Text(
+                    _hebrewMonths[m.month].length <= 3
+                        ? _hebrewMonths[m.month]
+                        : _hebrewMonths[m.month].substring(0, 3),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: AppColors.muted,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm + AppSpacing.xs),
+          Text(
+            latest.total <= 0
+                ? 'אין הוצאות בחודש הנוכחי.'
+                : 'בחודש ${_hebrewMonths[latest.month]} '
+                    '${(committedShare * 100).toStringAsFixed(0)}% מההוצאה כבר מחויבת '
+                    '(${_currency.format(latest.committedTotal)} קבוע+תשלומים) · '
+                    'נותרו ${_currency.format(latest.variableTotal)} לגמישות.',
+            style: const TextStyle(
+              fontSize: 12,
+              color: AppColors.muted,
+              height: 1.35,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  int _stackFlex(double part, double total) {
+    if (total <= 0 || part <= 0) return 0;
+    return (part / total * 1000).round().clamp(1, 1000);
+  }
+
+  String _compactMoney(double value) {
+    if (value >= 1000) return '${(value / 1000).toStringAsFixed(1)}k';
+    return value.toStringAsFixed(0);
+  }
+}
+
+class _InsightChip extends StatelessWidget {
+  const _InsightChip({
+    required this.label,
+    required this.value,
+  });
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm + AppSpacing.xs,
+        vertical: AppSpacing.sm,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceAlt,
+        borderRadius: BorderRadius.circular(AppRadii.sm),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 11,
+              color: AppColors.muted,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            value,
+            style: const TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 14,
+              color: AppColors.ink,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LegendDot extends StatelessWidget {
+  const _LegendDot({required this.color, required this.label});
+
+  final Color color;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 10,
+          height: 10,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 6),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: AppColors.ink,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _MonthlyTrendCard extends StatelessWidget {
   const _MonthlyTrendCard({required this.months});
 
@@ -694,10 +1066,11 @@ class _NatureSplitCard extends StatelessWidget {
     final installmentShare =
         total <= 0 ? 0.0 : dashboard.installmentTotal / total;
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
+    final committedPct = (dashboard.committedShare * 100).toStringAsFixed(0);
+
+    return SoftCard(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      child: Column(
           children: [
             Row(
               children: [
@@ -707,7 +1080,7 @@ class _NatureSplitCard extends StatelessWidget {
                     amount: dashboard.variableTotal,
                     count: dashboard.variableCount,
                     share: variableShare,
-                    color: Colors.teal,
+                    color: AppColors.expenses,
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -717,7 +1090,7 @@ class _NatureSplitCard extends StatelessWidget {
                     amount: dashboard.fixedTotal,
                     count: dashboard.fixedCount,
                     share: fixedShare,
-                    color: Colors.indigo,
+                    color: AppColors.primary,
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -727,7 +1100,7 @@ class _NatureSplitCard extends StatelessWidget {
                     amount: dashboard.installmentTotal,
                     count: dashboard.installmentCount,
                     share: installmentShare,
-                    color: Colors.deepOrange,
+                    color: AppColors.warning,
                   ),
                 ),
               ],
@@ -742,22 +1115,36 @@ class _NatureSplitCard extends StatelessWidget {
                     if (variableShare > 0)
                       Expanded(
                         flex: (variableShare * 1000).round().clamp(1, 1000),
-                        child: Container(color: Colors.teal),
+                        child: Container(color: AppColors.expenses),
                       ),
                     if (fixedShare > 0)
                       Expanded(
                         flex: (fixedShare * 1000).round().clamp(1, 1000),
-                        child: Container(color: Colors.indigo),
+                        child: Container(color: AppColors.primary),
                       ),
                     if (installmentShare > 0)
                       Expanded(
                         flex: (installmentShare * 1000).round().clamp(1, 1000),
-                        child: Container(color: Colors.deepOrange),
+                        child: Container(color: AppColors.warning),
                       ),
                   ],
                 ),
               ),
             ),
+            if (total > 0) ...[
+              const SizedBox(height: 10),
+              Align(
+                alignment: Alignment.centerRight,
+                child: Text(
+                  'רצפת התחייבויות: $committedPct% מהתקופה כבר לא גמישה',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.muted,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
             const SizedBox(height: 8),
             Text(
               'משתנה ${(variableShare * 100).toStringAsFixed(0)}% · '
@@ -767,7 +1154,6 @@ class _NatureSplitCard extends StatelessWidget {
             ),
           ],
         ),
-      ),
     );
   }
 }

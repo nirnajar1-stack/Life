@@ -13,6 +13,7 @@ import '../screens/recurring_expense_form_screen.dart';
 
 final _currency =
     NumberFormat.currency(locale: 'he_IL', symbol: '₪', decimalDigits: 0);
+final _dateFormat = DateFormat('dd/MM/yy');
 
 class RecurringExpensesTab extends ConsumerWidget {
   const RecurringExpensesTab({super.key, this.onRefresh});
@@ -353,6 +354,8 @@ class _TemplateCard extends StatelessWidget {
                       [
                         template.category,
                         template.scheduleLabel,
+                        if (template.endDate != null)
+                          'עד ${_dateFormat.format(template.endDate!)}',
                         if (template.isShared)
                           sharedSplitLabel(template.sharedExp),
                         if (template.amountVariable) 'סכום משתנה',

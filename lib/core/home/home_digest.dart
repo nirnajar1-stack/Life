@@ -100,7 +100,9 @@ class HomeDigest {
   }) {
     final timestamp = now ?? DateTime.now();
     final todayStart = DateTime(timestamp.year, timestamp.month, timestamp.day);
+    final tomorrowStart = todayStart.add(const Duration(days: 1));
     final monthStart = DateTime(timestamp.year, timestamp.month);
+    final monthEnd = DateTime(timestamp.year, timestamp.month + 1);
     final previousStart = DateTime(timestamp.year, timestamp.month - 1);
 
     final overdue = tasks.where((t) => t.isOverdue).toList()
@@ -112,14 +114,24 @@ class HomeDigest {
       ..sort((a, b) =>
           (a.dueDate ?? a.createdAt).compareTo(b.dueDate ?? a.createdAt));
 
-    final thisMonth = expenses.where((e) => !e.createdAt.isBefore(monthStart));
-    final thisMonthIncomes =
-        incomes.where((i) => !i.createdAt.isBefore(monthStart));
+    // Closed calendar month [start, nextMonth) — same as Money hub cashflow.
+    final thisMonth = expenses.where(
+      (e) =>
+          !e.createdAt.isBefore(monthStart) && e.createdAt.isBefore(monthEnd),
+    );
+    final thisMonthIncomes = incomes.where(
+      (i) =>
+          !i.createdAt.isBefore(monthStart) && i.createdAt.isBefore(monthEnd),
+    );
     final previousMonth = expenses.where(
       (e) =>
           !e.createdAt.isBefore(previousStart) && e.createdAt.isBefore(monthStart),
     );
-    final todayItems = expenses.where((e) => !e.createdAt.isBefore(todayStart));
+    final todayItems = expenses.where(
+      (e) =>
+          !e.createdAt.isBefore(todayStart) &&
+          e.createdAt.isBefore(tomorrowStart),
+    );
 
     final byParent = <String, double>{};
     for (final expense in thisMonth) {

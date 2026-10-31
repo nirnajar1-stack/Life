@@ -28,6 +28,9 @@ class MonthSpend {
     required this.total,
     required this.itemCount,
     required this.transactionCount,
+    this.fixedTotal = 0,
+    this.variableTotal = 0,
+    this.installmentTotal = 0,
   });
 
   final int year;
@@ -35,8 +38,26 @@ class MonthSpend {
   final double total;
   final int itemCount;
   final int transactionCount;
+  final double fixedTotal;
+  final double variableTotal;
+  final double installmentTotal;
 
   DateTime get monthStart => DateTime(year, month);
+
+  double get committedTotal => fixedTotal + installmentTotal;
+}
+
+/// One calendar day aggregate for the daily burn chart.
+class DaySpend {
+  const DaySpend({
+    required this.date,
+    required this.total,
+    required this.itemCount,
+  });
+
+  final DateTime date;
+  final double total;
+  final int itemCount;
 }
 
 /// Side-by-side category comparison between two months.
@@ -83,6 +104,11 @@ class ExpenseDashboard {
     required this.monthComparison,
     required this.currentMonthLabel,
     required this.previousMonthLabel,
+    this.dailyTrend = const [],
+    this.averageDailySpend = 0,
+    this.peakDaySpend = 0,
+    this.peakDayLabel = '',
+    this.daysWithSpend = 0,
   });
 
   final ExpensePeriod period;
@@ -96,6 +122,13 @@ class ExpenseDashboard {
 
   /// Newest months first (past months only — never future).
   final List<MonthSpend> monthlyTrend;
+
+  /// Chronological daily series for the active window (oldest → newest).
+  final List<DaySpend> dailyTrend;
+  final double averageDailySpend;
+  final double peakDaySpend;
+  final String peakDayLabel;
+  final int daysWithSpend;
 
   final List<NamedAmount> parentCategories;
 
@@ -124,6 +157,13 @@ class ExpenseDashboard {
   double? get monthOverMonthPercent {
     if (previousMonthTotal <= 0) return null;
     return (monthOverMonthDelta / previousMonthTotal) * 100;
+  }
+
+  /// Share of period spend that is committed (fixed + installments).
+  double get committedShare {
+    final total = variableTotal + fixedTotal + installmentTotal;
+    if (total <= 0) return 0;
+    return ((fixedTotal + installmentTotal) / total).clamp(0.0, 1.0);
   }
 
   static ExpenseDashboard empty(ExpensePeriod period) => ExpenseDashboard(
@@ -191,6 +231,65 @@ String _hebrewSourceLabel(String source) {
 
 String _monthKey(DateTime d) =>
     '${d.year}-${d.month.toString().padLeft(2, '0')}';
+
+String _dayKey(DateTime d) =>
+    '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
+
+/// Builds a contiguous daily series for the active window.
+///
+/// For "this month" fills every day from month start through today.
+/// For longer periods uses the last [maxDays] days that fall inside [expenses].
+List<DaySpend> _buildDailyTrend(
+  List<ExpenseModel> expenses, {
+  required ExpensePeriod period,
+  required DateTime now,
+  int maxDays = 31,
+}) {
+  final today = _dateOnly(now);
+  late DateTime windowStart;
+  late DateTime windowEnd;
+
+  if (period == ExpensePeriod.thisMonth) {
+    windowStart = DateTime(now.year, now.month);
+    windowEnd = today;
+  } else {
+    windowEnd = today;
+    windowStart = today.subtract(Duration(days: maxDays - 1));
+    if (expenses.isNotEmpty) {
+      final earliest = expenses
+          .map((e) => _dateOnly(e.createdAt))
+          .reduce((a, b) => a.isBefore(b) ? a : b);
+      if (earliest.isAfter(windowStart)) windowStart = earliest;
+    }
+  }
+
+  final Map<String, double> dayTotals = {};
+  final Map<String, int> dayCounts = {};
+  for (final e in expenses) {
+    final day = _dateOnly(e.createdAt);
+    if (day.isBefore(windowStart) || day.isAfter(windowEnd)) continue;
+    final key = _dayKey(day);
+    dayTotals[key] = (dayTotals[key] ?? 0) + e.actualAmount;
+    dayCounts[key] = (dayCounts[key] ?? 0) + 1;
+  }
+
+  final days = <DaySpend>[];
+  for (var cursor = windowStart;
+      !cursor.isAfter(windowEnd);
+      cursor = cursor.add(const Duration(days: 1))) {
+    final key = _dayKey(cursor);
+    days.add(
+      DaySpend(
+        date: cursor,
+        total: dayTotals[key] ?? 0,
+        itemCount: dayCounts[key] ?? 0,
+      ),
+    );
+  }
+  return days;
+}
 
 /// Builds dashboard slices.
 ///
@@ -294,6 +393,9 @@ ExpenseDashboard buildExpenseDashboard(
   final Map<String, double> monthTotals = {};
   final Map<String, int> monthItems = {};
   final Map<String, Set<String>> monthTxKeys = {};
+  final Map<String, double> monthFixed = {};
+  final Map<String, double> monthVariable = {};
+  final Map<String, double> monthInstallment = {};
   final Map<String, double> thisMonthByParent = {};
   final Map<String, double> prevMonthByParent = {};
 
@@ -302,6 +404,20 @@ ExpenseDashboard buildExpenseDashboard(
     final monthKey = _monthKey(e.createdAt);
     monthTotals[monthKey] = (monthTotals[monthKey] ?? 0) + personal;
     monthItems[monthKey] = (monthItems[monthKey] ?? 0) + 1;
+
+    final nature = ExpenseNatureX.resolve(
+      isFixed: e.isFixed,
+      installmentGroupId: e.installmentGroupId,
+    );
+    switch (nature) {
+      case ExpenseNature.fixed:
+        monthFixed[monthKey] = (monthFixed[monthKey] ?? 0) + personal;
+      case ExpenseNature.variable:
+        monthVariable[monthKey] = (monthVariable[monthKey] ?? 0) + personal;
+      case ExpenseNature.installment:
+        monthInstallment[monthKey] =
+            (monthInstallment[monthKey] ?? 0) + personal;
+    }
 
     final txKey = (e.messageId != null && e.messageId!.trim().isNotEmpty)
         ? 'm:${e.messageId!.trim()}'
@@ -328,8 +444,27 @@ ExpenseDashboard buildExpenseDashboard(
       total: monthTotals[key]!,
       itemCount: monthItems[key] ?? 0,
       transactionCount: monthTxKeys[key]?.length ?? 0,
+      fixedTotal: monthFixed[key] ?? 0,
+      variableTotal: monthVariable[key] ?? 0,
+      installmentTotal: monthInstallment[key] ?? 0,
     );
   }).toList();
+
+  final dailyTrend = _buildDailyTrend(expenses, period: period, now: n);
+  final daysWithSpend = dailyTrend.where((d) => d.total > 0).length;
+  final dailySpendSum =
+      dailyTrend.fold<double>(0, (sum, d) => sum + d.total);
+  final averageDailySpend = dailyTrend.isEmpty
+      ? 0.0
+      : dailySpendSum / dailyTrend.length;
+  DaySpend? peakDay;
+  for (final day in dailyTrend) {
+    if (peakDay == null || day.total > peakDay.total) peakDay = day;
+  }
+  final peakDaySpend = peakDay?.total ?? 0;
+  final peakDayLabel = peakDay == null || peakDay.total <= 0
+      ? ''
+      : '${peakDay.date.day}/${peakDay.date.month}';
 
   final activeMonths = monthlyTrend.where((m) => m.total >= 100).toList();
   final averageMonthTotal = activeMonths.isEmpty
@@ -395,6 +530,11 @@ ExpenseDashboard buildExpenseDashboard(
     previousMonthTotal: previousMonthTotal,
     averageMonthTotal: averageMonthTotal,
     monthlyTrend: monthlyTrend.take(8).toList(),
+    dailyTrend: dailyTrend,
+    averageDailySpend: averageDailySpend,
+    peakDaySpend: peakDaySpend,
+    peakDayLabel: peakDayLabel,
+    daysWithSpend: daysWithSpend,
     parentCategories: parentCategories,
     rawCategories: rawCategories.take(8).toList(),
     variableTotal: variableTotal,
