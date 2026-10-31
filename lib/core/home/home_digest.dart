@@ -1,6 +1,7 @@
 import 'package:intl/intl.dart';
 
 import '../../features/expenses/data/models/expense_model.dart';
+import '../../features/expenses/domain/models/expense_calendar.dart';
 import '../../features/expenses/domain/models/expense_category_taxonomy.dart';
 import '../../features/income/data/models/income_model.dart';
 import '../../features/habits/data/models/habit_models.dart';
@@ -101,9 +102,10 @@ class HomeDigest {
     final timestamp = now ?? DateTime.now();
     final todayStart = DateTime(timestamp.year, timestamp.month, timestamp.day);
     final tomorrowStart = todayStart.add(const Duration(days: 1));
-    final monthStart = DateTime(timestamp.year, timestamp.month);
-    final monthEnd = DateTime(timestamp.year, timestamp.month + 1);
-    final previousStart = DateTime(timestamp.year, timestamp.month - 1);
+    final monthStart = expenseMonthStart(timestamp.year, timestamp.month);
+    final monthEnd = expenseMonthStart(timestamp.year, timestamp.month + 1);
+    final previousStart =
+        expenseMonthStart(timestamp.year, timestamp.month - 1);
 
     final overdue = tasks.where((t) => t.isOverdue).toList()
       ..sort((a, b) =>
@@ -114,23 +116,34 @@ class HomeDigest {
       ..sort((a, b) =>
           (a.dueDate ?? a.createdAt).compareTo(b.dueDate ?? a.createdAt));
 
-    // Closed calendar month [start, nextMonth) — same as Money hub cashflow.
+    // Closed calendar month — date-only aware (recurring UTC midnight safe).
     final thisMonth = expenses.where(
-      (e) =>
-          !e.createdAt.isBefore(monthStart) && e.createdAt.isBefore(monthEnd),
+      (e) => expenseInRange(
+        e.createdAt,
+        startInclusive: monthStart,
+        endExclusive: monthEnd,
+      ),
     );
     final thisMonthIncomes = incomes.where(
-      (i) =>
-          !i.createdAt.isBefore(monthStart) && i.createdAt.isBefore(monthEnd),
+      (i) => expenseInRange(
+        i.createdAt,
+        startInclusive: monthStart,
+        endExclusive: monthEnd,
+      ),
     );
     final previousMonth = expenses.where(
-      (e) =>
-          !e.createdAt.isBefore(previousStart) && e.createdAt.isBefore(monthStart),
+      (e) => expenseInRange(
+        e.createdAt,
+        startInclusive: previousStart,
+        endExclusive: monthStart,
+      ),
     );
     final todayItems = expenses.where(
-      (e) =>
-          !e.createdAt.isBefore(todayStart) &&
-          e.createdAt.isBefore(tomorrowStart),
+      (e) => expenseInRange(
+        e.createdAt,
+        startInclusive: todayStart,
+        endExclusive: tomorrowStart,
+      ),
     );
 
     final byParent = <String, double>{};

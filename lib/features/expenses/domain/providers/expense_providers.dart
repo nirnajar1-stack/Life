@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/supabase/supabase_providers.dart';
 import '../../data/models/expense_model.dart';
 import '../../data/repositories/expense_repository.dart';
+import '../models/expense_calendar.dart';
 import '../models/expense_dashboard.dart';
 import '../models/expense_ledger.dart';
 import '../models/expense_period.dart';
@@ -52,8 +53,15 @@ final expenseLedgerProvider =
   return ref.watch(expensesRawProvider).whenData((all) {
     final inPeriod = filterExpensesByPeriod(all, period);
     final now = DateTime.now();
-    final nextMonth = DateTime(now.year, now.month + 1);
-    final future = all.where((e) => !e.createdAt.isBefore(nextMonth)).toList();
+    final nextMonth = expenseMonthStart(now.year, now.month + 1);
+    final future = all
+        .where(
+          (e) => !expenseInRange(
+            e.createdAt,
+            endExclusive: nextMonth,
+          ),
+        )
+        .toList();
     final byId = <int, ExpenseModel>{
       for (final e in inPeriod) e.id: e,
       for (final e in future) e.id: e,
@@ -65,12 +73,17 @@ final expenseLedgerProvider =
 /// Personal spend total for the current calendar month (home + cashflow banner).
 final monthExpenseTotalProvider = Provider<AsyncValue<double>>((ref) {
   final now = DateTime.now();
-  final start = DateTime(now.year, now.month);
-  final end = DateTime(now.year, now.month + 1);
+  final start = expenseMonthStart(now.year, now.month);
+  final end = expenseMonthStart(now.year, now.month + 1);
   return ref.watch(expensesRawProvider).whenData(
         (expenses) => expenses
-            .where((e) =>
-                !e.createdAt.isBefore(start) && e.createdAt.isBefore(end))
+            .where(
+              (e) => expenseInRange(
+                e.createdAt,
+                startInclusive: start,
+                endExclusive: end,
+              ),
+            )
             .fold<double>(0, (sum, e) => sum + e.actualAmount),
       );
 });

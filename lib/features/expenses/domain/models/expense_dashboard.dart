@@ -1,4 +1,5 @@
 import '../../data/models/expense_model.dart';
+import 'expense_calendar.dart';
 import 'expense_category_taxonomy.dart';
 import 'expense_ledger.dart';
 import 'expense_nature.dart';
@@ -229,13 +230,17 @@ String _hebrewSourceLabel(String source) {
   }
 }
 
-String _monthKey(DateTime d) =>
-    '${d.year}-${d.month.toString().padLeft(2, '0')}';
+String _monthKey(DateTime d) {
+  final day = expenseCalendarDate(d);
+  return '${day.year}-${day.month.toString().padLeft(2, '0')}';
+}
 
-String _dayKey(DateTime d) =>
-    '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+String _dayKey(DateTime d) {
+  final day = expenseCalendarDate(d);
+  return '${day.year}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}';
+}
 
-DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
+DateTime _dateOnly(DateTime d) => expenseCalendarDate(d);
 
 /// Builds a contiguous daily series for the active window.
 ///
@@ -303,13 +308,13 @@ ExpenseDashboard buildExpenseDashboard(
   List<ExpenseModel>? calendarExpenses,
 }) {
   final n = now ?? DateTime.now();
-  final nextMonthStart = DateTime(n.year, n.month + 1);
-  final prevDate = DateTime(n.year, n.month - 1);
-  final thisMonthKey = _monthKey(DateTime(n.year, n.month));
+  final nextMonthStart = expenseMonthStart(n.year, n.month + 1);
+  final prevDate = expenseMonthStart(n.year, n.month - 1);
+  final thisMonthKey = _monthKey(expenseMonthStart(n.year, n.month));
   final prevMonthKey = _monthKey(prevDate);
 
   final calendar = (calendarExpenses ?? expenses)
-      .where((e) => e.createdAt.isBefore(nextMonthStart))
+      .where((e) => expenseInRange(e.createdAt, endExclusive: nextMonthStart))
       .toList();
 
   if (expenses.isEmpty && calendar.isEmpty) {

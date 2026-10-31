@@ -1,4 +1,5 @@
 import '../../data/models/expense_model.dart';
+import 'expense_calendar.dart';
 
 /// Time window used to filter expenses for the dashboard / ledger insights.
 enum ExpensePeriod {
@@ -28,11 +29,11 @@ DateTime? periodStart(ExpensePeriod period, {DateTime? now}) {
   final n = now ?? DateTime.now();
   switch (period) {
     case ExpensePeriod.thisMonth:
-      return DateTime(n.year, n.month);
+      return expenseMonthStart(n.year, n.month);
     case ExpensePeriod.last3Months:
-      return DateTime(n.year, n.month - 2);
+      return expenseMonthStart(n.year, n.month - 2);
     case ExpensePeriod.yearToDate:
-      return DateTime(n.year);
+      return expenseMonthStart(n.year, 1);
     case ExpensePeriod.all:
       return null;
   }
@@ -44,7 +45,7 @@ DateTime? periodStart(ExpensePeriod period, {DateTime? now}) {
 /// charges never leak into "החודש" / trend / period totals.
 DateTime? periodEndExclusive(ExpensePeriod period, {DateTime? now}) {
   final n = now ?? DateTime.now();
-  final nextMonth = DateTime(n.year, n.month + 1);
+  final nextMonth = expenseMonthStart(n.year, n.month + 1);
   switch (period) {
     case ExpensePeriod.thisMonth:
     case ExpensePeriod.last3Months:
@@ -54,7 +55,7 @@ DateTime? periodEndExclusive(ExpensePeriod period, {DateTime? now}) {
   }
 }
 
-/// Filters expenses to those whose [createdAt] falls inside [period].
+/// Filters expenses to those whose calendar date falls inside [period].
 List<ExpenseModel> filterExpensesByPeriod(
   List<ExpenseModel> expenses,
   ExpensePeriod period, {
@@ -64,9 +65,13 @@ List<ExpenseModel> filterExpensesByPeriod(
   final start = periodStart(period, now: now);
   final end = includeFuture ? null : periodEndExclusive(period, now: now);
 
-  return expenses.where((e) {
-    if (start != null && e.createdAt.isBefore(start)) return false;
-    if (end != null && !e.createdAt.isBefore(end)) return false;
-    return true;
-  }).toList();
+  return expenses
+      .where(
+        (e) => expenseInRange(
+          e.createdAt,
+          startInclusive: start,
+          endExclusive: end,
+        ),
+      )
+      .toList();
 }

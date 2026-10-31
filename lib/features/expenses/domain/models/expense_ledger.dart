@@ -1,4 +1,5 @@
 import '../../data/models/expense_model.dart';
+import 'expense_calendar.dart';
 import 'expense_nature.dart';
 
 /// A single ledger row: either one expense, or a receipt-style group
@@ -173,8 +174,8 @@ List<ExpenseMonthSection> buildExpenseLedger(List<ExpenseModel> expenses) {
 
   final Map<String, List<ExpenseTransaction>> byMonth = {};
   for (final tx in transactions) {
-    final key =
-        '${tx.date.year}-${tx.date.month.toString().padLeft(2, '0')}';
+    final day = expenseCalendarDate(tx.date);
+    final key = '${day.year}-${day.month.toString().padLeft(2, '0')}';
     byMonth.putIfAbsent(key, () => []).add(tx);
   }
 

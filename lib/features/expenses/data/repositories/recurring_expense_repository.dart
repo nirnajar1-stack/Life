@@ -120,7 +120,13 @@ class RecurringExpenseRepository {
     }
 
     final day = template.dayOfMonth.clamp(1, 28);
-    final chargeDate = DateTime(targetMonth.year, targetMonth.month, day);
+    // Noon UTC keeps the calendar day stable across all timezones.
+    final chargeDate = DateTime.utc(
+      targetMonth.year,
+      targetMonth.month,
+      day,
+      12,
+    );
     final expense = ExpenseModel(
       id: 0,
       createdAt: chargeDate,
@@ -148,9 +154,18 @@ class RecurringExpenseRepository {
     }).eq('id', template.id);
   }
 
+  /// UTC month window so date-only charges at midnight UTC are included
+  /// regardless of the device timezone.
+  (DateTime, DateTime) _utcMonthWindow(DateTime month) {
+    final start = recurringMonthStart(month);
+    return (
+      DateTime.utc(start.year, start.month, 1),
+      DateTime.utc(start.year, start.month + 1, 1),
+    );
+  }
+
   Future<Set<String>> _chargedTitlesThisMonth() async {
-    final start = recurringMonthStart(DateTime.now());
-    final end = recurringNextMonth(start);
+    final (start, end) = _utcMonthWindow(DateTime.now());
     final rows = await _client
         .from(_charges)
         .select('item_name')
@@ -180,8 +195,7 @@ class RecurringExpenseRepository {
   }
 
   Future<bool> _chargeExistsByRecurringId(String templateId, DateTime month) async {
-    final start = recurringMonthStart(month);
-    final end = recurringNextMonth(start);
+    final (start, end) = _utcMonthWindow(month);
     final rows = await _client
         .from(_charges)
         .select('id')
@@ -196,8 +210,7 @@ class RecurringExpenseRepository {
     final normalized = _normalizeTitle(title);
     if (normalized.isEmpty) return false;
 
-    final start = recurringMonthStart(month);
-    final end = recurringNextMonth(start);
+    final (start, end) = _utcMonthWindow(month);
     final rows = await _client
         .from(_charges)
         .select('item_name')
@@ -224,7 +237,8 @@ class RecurringExpenseRepository {
     required DateTime month,
   }) async {
     final day = template.dayOfMonth.clamp(1, 28);
-    final chargeDate = DateTime(month.year, month.month, day);
+    // Noon UTC keeps the calendar day stable across all timezones.
+    final chargeDate = DateTime.utc(month.year, month.month, day, 12);
     final expense = ExpenseModel(
       id: 0,
       createdAt: chargeDate,
