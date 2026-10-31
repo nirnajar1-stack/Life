@@ -35,11 +35,11 @@ class MoneyHubScreen extends ConsumerWidget {
             title: const Text('כסף'),
             automaticallyImplyLeading: false,
             bottom: PreferredSize(
-              preferredSize: const Size.fromHeight(96),
+              preferredSize: const Size.fromHeight(148),
               child: Column(
                 children: [
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
                     child: _CashflowBanner(
                       income: income,
                       expense: expense,
@@ -87,83 +87,87 @@ class _CashflowBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        child: loading
-            ? const Center(
-                child: SizedBox(
-                  height: 24,
-                  width: 24,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-              )
-            : Row(
-                children: [
-                  Expanded(
-                    child: _StatCell(
-                      label: 'הכנסות',
-                      value: _currency.format(income),
-                      color: AppColors.income,
-                    ),
-                  ),
-                  Container(width: 1, height: 36, color: AppColors.line),
-                  Expanded(
-                    child: _StatCell(
-                      label: 'הוצאות',
-                      value: _currency.format(expense),
-                      color: AppColors.expenses,
-                    ),
-                  ),
-                  Container(width: 1, height: 36, color: AppColors.line),
-                  Expanded(
-                    child: _StatCell(
-                      label: 'נטו',
-                      value: _currency.format(net),
-                      color: net >= 0 ? AppColors.income : AppColors.danger,
-                    ),
-                  ),
-                ],
-              ),
+    return HeroPanel(
+      eyebrow: 'תזרים החודש',
+      title: loading ? 'טוען…' : _currency.format(net),
+      subtitle: loading
+          ? null
+          : 'הכנסות ${_currency.format(income)} · הוצאות ${_currency.format(expense)}',
+      trailing: StatusPill(
+        label: net >= 0 ? 'חיובי' : 'גירעון',
+        tone: net >= 0 ? StatusPillTone.success : StatusPillTone.danger,
       ),
+      child: loading
+          ? const LinearProgressIndicator(
+              color: Colors.white,
+              backgroundColor: Colors.white24,
+            )
+          : Row(
+              children: [
+                Expanded(
+                  child: _CashStat(
+                    label: 'הכנסות',
+                    value: _currency.format(income),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _CashStat(
+                    label: 'הוצאות',
+                    value: _currency.format(expense),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _CashStat(
+                    label: 'נטו',
+                    value: _currency.format(net),
+                  ),
+                ),
+              ],
+            ),
     );
   }
 }
 
-class _StatCell extends StatelessWidget {
-  const _StatCell({
-    required this.label,
-    required this.value,
-    required this.color,
-  });
+class _CashStat extends StatelessWidget {
+  const _CashStat({required this.label, required this.value});
 
   final String label;
   final String value;
-  final Color color;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            color: AppColors.muted,
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.72),
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
           ),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          value,
-          style: TextStyle(
-            color: color,
-            fontWeight: FontWeight.w800,
-            fontSize: 14,
+          const SizedBox(height: 2),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+              fontSize: 13,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

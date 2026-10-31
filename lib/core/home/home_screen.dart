@@ -113,7 +113,6 @@ class HomeScreen extends ConsumerWidget {
     final expensesAsync = ref.watch(expensesRawProvider);
     final incomesAsync = ref.watch(incomesRawProvider);
     final habitsAsync = ref.watch(habitsControllerProvider);
-    final isDesktop = AppLayout.isDesktop(context);
     final digest = HomeDigest.from(
       tasks: tasksAsync.valueOrNull ?? const [],
       expenses: expensesAsync.valueOrNull ?? const [],
@@ -126,25 +125,7 @@ class HomeScreen extends ConsumerWidget {
         habitsAsync.isLoading;
 
     return Scaffold(
-      appBar: isDesktop
-          ? null
-          : AppBar(
-              title: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(_greeting()),
-                  Text(
-                    _dateFormat.format(DateTime.now()),
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppColors.muted,
-                          fontWeight: FontWeight.w500,
-                        ),
-                  ),
-                ],
-              ),
-              toolbarHeight: 68,
-              automaticallyImplyLeading: false,
-            ),
+      appBar: null,
       body: RefreshIndicator(
         onRefresh: () async {
           ref.read(tasksControllerProvider.notifier).reload();
@@ -158,24 +139,10 @@ class HomeScreen extends ConsumerWidget {
           context: context,
           child: ListView(
             padding: AppLayout.pagePadding.copyWith(
-              top: isDesktop ? 20 : 4,
+              top: 16,
               bottom: 40,
             ),
             children: [
-              if (isDesktop) ...[
-                Text(
-                  _greeting(),
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  _dateFormat.format(DateTime.now()),
-                  style: const TextStyle(color: AppColors.muted),
-                ),
-                const SizedBox(height: 16),
-              ],
               if (tasksAsync.hasError ||
                   expensesAsync.hasError ||
                   incomesAsync.hasError ||
@@ -199,6 +166,8 @@ class HomeScreen extends ConsumerWidget {
                   ),
                 )
               else ...[
+                _HomeGreetingHeader(greeting: _greeting()),
+                const SizedBox(height: 16),
                 _BriefingCard(
                   digest: digest,
                   loading: loading,
@@ -211,21 +180,21 @@ class HomeScreen extends ConsumerWidget {
                   onOpenCalendar: () =>
                       ref.read(appTabProvider.notifier).state = AppTab.calendar,
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 _QuickActions(
                   onAddTask: () => _openTaskForm(context, ref),
                   onAddExpense: () => _openExpenseForm(context, ref),
                   onAddHabit: () => _openHabitForm(context, ref),
                   onAddEvent: () => _openEventForm(context, ref),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 const NotificationCard(),
                 const SizedBox(height: 24),
                 UpcomingEventsPanel(
                   onOpenAll: () =>
                       ref.read(appTabProvider.notifier).state = AppTab.calendar,
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 _DigestColumns(
                   digest: digest,
                   habits: habitsAsync.valueOrNull ?? const [],
@@ -319,6 +288,51 @@ class _DigestColumns extends StatelessWidget {
   }
 }
 
+class _HomeGreetingHeader extends StatelessWidget {
+  const _HomeGreetingHeader({required this.greeting});
+
+  final String greeting;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                greeting,
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                _dateFormat.format(DateTime.now()),
+                style: const TextStyle(
+                  color: AppColors.muted,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+        Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: AppColors.primary.withValues(alpha: 0.10),
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(Icons.person_outline, color: AppColors.primary),
+        ),
+      ],
+    );
+  }
+}
+
 class _BriefingCard extends StatelessWidget {
   const _BriefingCard({
     required this.digest,
@@ -338,111 +352,70 @@ class _BriefingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'תקציר היום',
-              style: TextStyle(
-                color: AppColors.muted,
-                fontWeight: FontWeight.w700,
-                fontSize: 13,
-              ),
-            ),
-            const SizedBox(height: 6),
-            if (loading)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 10),
-                child: LinearProgressIndicator(),
-              )
-            else
-              Text(
-                digest.headline,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w800,
-                      height: 1.35,
-                    ),
-              ),
-            const SizedBox(height: 14),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                _SummaryChip(
-                  label: 'באיחור',
-                  value: '${digest.overdue.length}',
-                  color: digest.overdue.isEmpty
-                      ? AppColors.muted
-                      : AppColors.danger,
-                  onTap: onOpenTasks,
-                ),
-                _SummaryChip(
-                  label: 'היום',
-                  value: '${digest.today.length}',
-                  color: AppColors.tasks,
-                  onTap: onOpenTasks,
-                ),
-                _SummaryChip(
-                  label: 'השבוע',
-                  value: '${digest.thisWeek.length}',
-                  color: AppColors.warning,
-                  onTap: onOpenTasks,
-                ),
-                _SummaryChip(
-                  label: 'הרגלים',
-                  value: digest.habitsDueToday == 0
-                      ? '—'
-                      : '${digest.habitsDoneToday}/${digest.habitsDueToday}',
-                  color: AppColors.habits,
-                  onTap: onOpenHabits,
-                ),
-                _SummaryChip(
-                  label: 'יומן',
-                  value: '↗',
-                  color: AppColors.calendar,
-                  onTap: onOpenCalendar,
-                ),
-                _SummaryChip(
-                  label: 'נטו',
-                  value: loading ? '—' : _currency.format(digest.monthNet),
-                  color: digest.monthNet >= 0 ? AppColors.income : AppColors.danger,
-                  onTap: onOpenExpenses,
-                ),
-                _SummaryChip(
-                  label: 'הוצאות',
-                  value: loading ? '—' : _currency.format(digest.monthTotal),
-                  color: AppColors.expenses,
-                  onTap: onOpenExpenses,
-                ),
-              ],
-            ),
-          ],
-        ),
+    final focusLabel = digest.overdue.isNotEmpty
+        ? 'יש ${digest.overdue.length} באיחור'
+        : digest.today.isNotEmpty
+            ? 'יש ${digest.today.length} להיום'
+            : 'היום פנוי יחסית';
+
+    return HeroPanel(
+      eyebrow: 'תקציר היום',
+      title: loading ? 'טוען…' : focusLabel,
+      subtitle: loading ? null : digest.headline,
+      onTap: onOpenTasks,
+      trailing: StatusPill(
+        label: digest.hasUrgentTasks ? 'דחוף' : 'רגוע',
+        tone: digest.hasUrgentTasks
+            ? StatusPillTone.warning
+            : StatusPillTone.success,
+      ),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          _HeroStat(
+            label: 'משימות',
+            value: '${digest.openCount}',
+            onTap: onOpenTasks,
+          ),
+          _HeroStat(
+            label: 'הרגלים',
+            value: digest.habitsDueToday == 0
+                ? '—'
+                : '${digest.habitsDoneToday}/${digest.habitsDueToday}',
+            onTap: onOpenHabits,
+          ),
+          _HeroStat(
+            label: 'נטו',
+            value: loading ? '—' : _currency.format(digest.monthNet),
+            onTap: onOpenExpenses,
+          ),
+          _HeroStat(
+            label: 'יומן',
+            value: 'פתוח',
+            onTap: onOpenCalendar,
+          ),
+        ],
       ),
     );
   }
 }
 
-class _SummaryChip extends StatelessWidget {
-  const _SummaryChip({
+class _HeroStat extends StatelessWidget {
+  const _HeroStat({
     required this.label,
     required this.value,
-    required this.color,
     required this.onTap,
   });
 
   final String label;
   final String value;
-  final Color color;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: color.withValues(alpha: 0.08),
+      color: Colors.white.withValues(alpha: 0.12),
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
         onTap: onTap,
@@ -455,18 +428,18 @@ class _SummaryChip extends StatelessWidget {
               Text(
                 label,
                 style: TextStyle(
-                  color: color,
+                  color: Colors.white.withValues(alpha: 0.72),
                   fontSize: 11,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
               const SizedBox(height: 2),
               Text(
                 value,
-                style: TextStyle(
-                  color: color,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 16,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 15,
                 ),
               ),
             ],
@@ -492,71 +465,37 @@ class _QuickActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 10,
-      runSpacing: 10,
-      children: [
-        _QuickActionButton(
-          onPressed: onAddTask,
-          icon: Icons.add_task,
-          label: 'משימה',
-          filled: true,
-        ),
-        _QuickActionButton(
-          onPressed: onAddEvent,
-          icon: Icons.event_available,
-          label: 'אירוע',
-          color: AppColors.calendar,
-        ),
-        _QuickActionButton(
-          onPressed: onAddHabit,
-          icon: Icons.loop,
-          label: 'הרגל',
-          color: AppColors.habits,
-        ),
-        _QuickActionButton(
-          onPressed: onAddExpense,
-          icon: Icons.add_card,
-          label: 'הוצאה',
-          color: AppColors.expenses,
-        ),
-      ],
-    );
-  }
-}
-
-class _QuickActionButton extends StatelessWidget {
-  const _QuickActionButton({
-    required this.onPressed,
-    required this.icon,
-    required this.label,
-    this.color,
-    this.filled = false,
-  });
-
-  final VoidCallback onPressed;
-  final IconData icon;
-  final String label;
-  final Color? color;
-  final bool filled;
-
-  @override
-  Widget build(BuildContext context) {
-    final child = Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 18),
-        const SizedBox(width: 6),
-        Text(label),
-      ],
-    );
-    if (filled) {
-      return FilledButton(onPressed: onPressed, child: child);
-    }
-    return FilledButton.tonal(
-      onPressed: onPressed,
-      style: FilledButton.styleFrom(foregroundColor: color),
-      child: child,
+    return SoftCard(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          QuickActionCircle(
+            onTap: onAddTask,
+            icon: Icons.add_task,
+            label: 'משימה',
+            color: AppColors.primary,
+          ),
+          QuickActionCircle(
+            onTap: onAddEvent,
+            icon: Icons.event_available_outlined,
+            label: 'אירוע',
+            color: AppColors.calendar,
+          ),
+          QuickActionCircle(
+            onTap: onAddHabit,
+            icon: Icons.loop,
+            label: 'הרגל',
+            color: AppColors.habits,
+          ),
+          QuickActionCircle(
+            onTap: onAddExpense,
+            icon: Icons.add_card_outlined,
+            label: 'הוצאה',
+            color: AppColors.expenses,
+          ),
+        ],
+      ),
     );
   }
 }
@@ -643,10 +582,15 @@ class _FocusTaskRow extends StatelessWidget {
             : task.dueDate != null
                 ? _shortDate.format(task.dueDate!)
                 : task.category;
+    final tone = task.isOverdue
+        ? StatusPillTone.danger
+        : task.isDueToday
+            ? StatusPillTone.warning
+            : StatusPillTone.info;
 
     return ListTile(
       onTap: onOpen,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       leading: IconButton(
         tooltip: 'סמן כהושלמה',
         onPressed: onToggle,
@@ -654,7 +598,7 @@ class _FocusTaskRow extends StatelessWidget {
           task.isOverdue
               ? Icons.warning_amber_rounded
               : Icons.check_circle_outline,
-          color: task.isOverdue ? AppColors.danger : AppColors.expenses,
+          color: task.isOverdue ? AppColors.danger : AppColors.success,
         ),
       ),
       title: Text(
@@ -664,12 +608,13 @@ class _FocusTaskRow extends StatelessWidget {
         style: const TextStyle(fontWeight: FontWeight.w700),
       ),
       subtitle: Text(
-        [task.category, stamp].join(' · '),
-        style: TextStyle(
-          color: task.isOverdue ? AppColors.danger : AppColors.muted,
+        task.category,
+        style: const TextStyle(
+          color: AppColors.muted,
           fontSize: 12,
         ),
       ),
+      trailing: StatusPill(label: stamp, tone: tone),
     );
   }
 }

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_theme.dart';
+
 class AppSearchField extends StatefulWidget {
   const AppSearchField({
     super.key,
@@ -37,32 +39,38 @@ class _AppSearchFieldState extends State<AppSearchField> {
 
   @override
   Widget build(BuildContext context) {
-    return TextField(
-      controller: _controller,
-      onChanged: (value) {
-        widget.onChanged(value);
-        setState(() {});
-      },
-      textInputAction: TextInputAction.search,
-      decoration: InputDecoration(
-        hintText: widget.hint,
-        prefixIcon: const Icon(Icons.search, size: 20),
-        suffixIcon: _controller.text.isEmpty
-            ? null
-            : IconButton(
-                tooltip: 'נקה',
-                onPressed: () {
-                  _controller.clear();
-                  widget.onChanged('');
-                  setState(() {});
-                },
-                icon: const Icon(Icons.close, size: 18),
-              ),
-        isDense: true,
-        filled: true,
-        fillColor: Colors.white,
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+    return SoftCard(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: TextField(
+        controller: _controller,
+        onChanged: (value) {
+          widget.onChanged(value);
+          setState(() {});
+        },
+        textInputAction: TextInputAction.search,
+        decoration: InputDecoration(
+          hintText: widget.hint,
+          prefixIcon: const Icon(Icons.search, size: 20),
+          suffixIcon: _controller.text.isEmpty
+              ? null
+              : IconButton(
+                  tooltip: 'נקה',
+                  onPressed: () {
+                    _controller.clear();
+                    widget.onChanged('');
+                    setState(() {});
+                  },
+                  icon: const Icon(Icons.close, size: 18),
+                ),
+          isDense: true,
+          filled: true,
+          fillColor: Colors.white,
+          border: InputBorder.none,
+          enabledBorder: InputBorder.none,
+          focusedBorder: InputBorder.none,
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+        ),
       ),
     );
   }
