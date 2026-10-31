@@ -30,6 +30,10 @@ dependencies:
   # Hebrew web typography
   google_fonts: ^6.2.1
 
+  # Gift vouchers: barcode photo + open voucher links
+  image_picker: ^1.1.2
+  url_launcher: ^6.3.1
+
   flutter_localizations:
     sdk: flutter
 
