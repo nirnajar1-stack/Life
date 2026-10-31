@@ -257,9 +257,12 @@ class _KpiStrip extends StatelessWidget {
         : (mom <= 0 ? Colors.green.shade700 : Colors.red.shade700);
 
     final isWide = MediaQuery.sizeOf(context).width >= 900;
-    final cards = [
+    final periodIsThisMonth = dashboard.period == ExpensePeriod.thisMonth;
+    // When the chip is "החודש", period total == calendar month — don't show
+    // two competing "spend" numbers that look like a contradiction.
+    final cards = <Widget>[
       _KpiCard(
-        label: 'החודש',
+        label: 'חודש נוכחי (לוח שנה)',
         value: _currency.format(dashboard.thisMonthTotal),
         subtitle: momLabel,
         subtitleColor: momColor,
@@ -271,28 +274,35 @@ class _KpiStrip extends StatelessWidget {
         color: Theme.of(context).colorScheme.secondaryContainer,
       ),
       _KpiCard(
-        label: 'ממוצע חודשי',
+        label: 'ממוצע לחודש פעיל',
         value: _currency.format(dashboard.averageMonthTotal),
+        subtitle: 'רק חודשים עם הוצאה ≥ ₪100',
         color: Theme.of(context).colorScheme.tertiaryContainer,
       ),
-      _KpiCard(
-        label: 'סה״כ בתקופה',
-        value: _currency.format(dashboard.grandTotal),
-        subtitle: '${dashboard.totalItems} פריטים',
-        color: Colors.blueGrey.shade100,
-      ),
+      if (!periodIsThisMonth)
+        _KpiCard(
+          label: 'סה״כ · ${dashboard.period.label}',
+          value: _currency.format(dashboard.grandTotal),
+          subtitle: '${dashboard.totalItems} פריטים לפי הצ׳יפ למעלה',
+          color: Colors.blueGrey.shade100,
+        ),
     ];
 
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Align(
-          alignment: Alignment.centerRight,
-          child: Text(
-            'תקופה: ${dashboard.period.label} · ${dashboard.totalItems} פריטים',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Colors.grey.shade700,
-                ),
-          ),
+        Text(
+          periodIsThisMonth
+              ? 'מסננים לפי: ${dashboard.period.label} · '
+                  'המספר למעלה הוא מה שיצא בחודש הלוח הנוכחי '
+                  '(אחרי חלוקת הוצאות משותפות).'
+              : 'מסננים לפי: ${dashboard.period.label} · '
+                  '«חודש נוכחי» תמיד לוח שנה מלא · '
+                  '«סה״כ · ${dashboard.period.label}» רק לפי הצ׳יפ.',
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Colors.grey.shade700,
+                height: 1.35,
+              ),
         ),
         const SizedBox(height: 8),
         if (isWide)
@@ -305,21 +315,20 @@ class _KpiStrip extends StatelessWidget {
             ],
           )
         else ...[
-          Row(
-            children: [
-              Expanded(child: cards[0]),
-              const SizedBox(width: 10),
-              Expanded(child: cards[1]),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(child: cards[2]),
-              const SizedBox(width: 10),
-              Expanded(child: cards[3]),
-            ],
-          ),
+          for (var i = 0; i < cards.length; i += 2) ...[
+            if (i > 0) const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(child: cards[i]),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: i + 1 < cards.length
+                      ? cards[i + 1]
+                      : const SizedBox.shrink(),
+                ),
+              ],
+            ),
+          ],
         ],
       ],
     );
