@@ -44,9 +44,14 @@ class AppTheme {
 
   static List<BoxShadow> get softShadow => [
         BoxShadow(
+          color: AppColors.ink.withValues(alpha: 0.04),
+          blurRadius: 4,
+          offset: const Offset(0, 2),
+        ),
+        BoxShadow(
           color: AppColors.ink.withValues(alpha: 0.06),
           blurRadius: 18,
-          offset: const Offset(0, 6),
+          offset: const Offset(0, 8),
         ),
       ];
 
