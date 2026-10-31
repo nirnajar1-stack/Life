@@ -10,7 +10,9 @@ import '../../data/models/income_model.dart';
 import '../../domain/models/income_ledger.dart';
 import '../../domain/models/income_type.dart';
 import '../../domain/providers/income_providers.dart';
+import '../widgets/gift_vouchers_tab.dart';
 import '../widgets/recurring_incomes_tab.dart';
+import 'gift_voucher_form_screen.dart';
 import 'income_form_screen.dart';
 import 'recurring_income_form_screen.dart';
 
@@ -107,15 +109,17 @@ class _IncomeScreenState extends ConsumerState<IncomeScreen> {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: DefaultTabController(
-        length: 2,
+        length: 3,
         child: Scaffold(
           appBar: AppBar(
             title: const Text('הכנסות'),
             automaticallyImplyLeading: false,
             bottom: const TabBar(
+              isScrollable: true,
               tabs: [
                 Tab(text: 'פנקס'),
                 Tab(text: 'קבועות'),
+                Tab(text: 'שוברים'),
               ],
             ),
           ),
@@ -126,6 +130,15 @@ class _IncomeScreenState extends ConsumerState<IncomeScreen> {
                 context: context,
                 form: const RecurringIncomeFormScreen(),
               ).then((_) => _refresh());
+            },
+            onAddVoucher: () {
+              showAdaptiveForm(
+                context: context,
+                form: const GiftVoucherFormScreen(),
+              ).then((_) {
+                ref.invalidate(giftVouchersProvider);
+                return _refresh();
+              });
             },
           ),
           body: AppLayout.constrain(
@@ -169,7 +182,8 @@ class _IncomeScreenState extends ConsumerState<IncomeScreen> {
                             for (final month in months) ...[
                               _MonthSection(
                                 section: month,
-                                onEdit: (income) => _openForm(context, existing: income),
+                                onEdit: (income) =>
+                                    _openForm(context, existing: income),
                                 onDelete: (income) =>
                                     _deleteIncome(context, income),
                               ),
@@ -181,6 +195,7 @@ class _IncomeScreenState extends ConsumerState<IncomeScreen> {
                   ),
                 ),
                 RecurringIncomesTab(onRefresh: _refresh),
+                GiftVouchersTab(onRefresh: _refresh),
               ],
             ),
           ),
@@ -316,10 +331,12 @@ class _IncomeFab extends StatefulWidget {
   const _IncomeFab({
     required this.onAddVariable,
     required this.onAddRecurring,
+    required this.onAddVoucher,
   });
 
   final VoidCallback onAddVariable;
   final VoidCallback onAddRecurring;
+  final VoidCallback onAddVoucher;
 
   @override
   State<_IncomeFab> createState() => _IncomeFabState();
@@ -353,8 +370,19 @@ class _IncomeFabState extends State<_IncomeFab> {
   @override
   Widget build(BuildContext context) {
     final tab = _tabController?.index ?? 0;
-    final onPressed = tab == 1 ? widget.onAddRecurring : widget.onAddVariable;
-    final label = tab == 1 ? 'קבועה' : 'הכנסה';
+    final VoidCallback onPressed;
+    final String label;
+    switch (tab) {
+      case 1:
+        onPressed = widget.onAddRecurring;
+        label = 'קבועה';
+      case 2:
+        onPressed = widget.onAddVoucher;
+        label = 'שובר';
+      default:
+        onPressed = widget.onAddVariable;
+        label = 'הכנסה';
+    }
 
     return FloatingActionButton.extended(
       onPressed: onPressed,
