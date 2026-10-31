@@ -104,7 +104,47 @@ class RecurringExpenseRepository {
     return created;
   }
 
+  /// Calendar months (month-start) that already have a charge for [template].
+  Future<List<DateTime>> fetchChargedMonths(RecurringExpenseModel template) async {
+    final months = <DateTime>{};
+
+    final byId = await _client
+        .from(_charges)
+        .select('created_at')
+        .eq('recurring_expense_id', template.id);
+    for (final row in byId as List) {
+      final raw = (row as Map)['created_at'];
+      if (raw == null) continue;
+      final parsed = DateTime.tryParse(raw.toString());
+      if (parsed == null) continue;
+      final utc = parsed.toUtc();
+      months.add(DateTime(utc.year, utc.month));
+    }
+
+    // Legacy rows may lack recurring_expense_id — match by similar title.
+    final byTitle = await _client
+        .from(_charges)
+        .select('item_name, created_at')
+        .eq('source', 'life_app_recurring');
+    final normalized = _normalizeTitle(template.title);
+    for (final row in byTitle as List) {
+      final map = Map<String, dynamic>.from(row as Map);
+      final name = _normalizeTitle(map['item_name'] as String?);
+      if (!_titlesMatch(normalized, name)) continue;
+      final parsed = DateTime.tryParse('${map['created_at']}');
+      if (parsed == null) continue;
+      final utc = parsed.toUtc();
+      months.add(DateTime(utc.year, utc.month));
+    }
+
+    final sorted = months.toList()..sort((a, b) => b.compareTo(a));
+    return sorted;
+  }
+
   /// Records a one-off monthly charge for variable-amount templates.
+  ///
+  /// [month] may be any past/current calendar month (e.g. September while
+  /// today is October) as long as no charge exists for that month yet.
   Future<void> recordVariableCharge({
     required RecurringExpenseModel template,
     required double amount,
@@ -115,6 +155,18 @@ class RecurringExpenseRepository {
     }
 
     final targetMonth = recurringMonthStart(month ?? DateTime.now());
+    final currentMonth = recurringMonthStart(DateTime.now());
+    if (targetMonth.isAfter(currentMonth)) {
+      throw StateError('לא ניתן לרשום חיוב לחודש עתידי');
+    }
+    final startBound = recurringMonthStart(template.startDate);
+    if (targetMonth.isBefore(startBound)) {
+      throw StateError('החודש לפני תחילת ההוצאה הקבועה');
+    }
+    if (template.endDate != null &&
+        targetMonth.isAfter(recurringMonthStart(template.endDate!))) {
+      throw StateError('החודש אחרי סיום ההוצאה הקבועה');
+    }
     if (await _chargeExistsForTemplate(template, targetMonth)) {
       throw StateError('כבר נרשם חיוב לחודש זה');
     }
@@ -146,11 +198,17 @@ class RecurringExpenseRepository {
       'recurring_expense_id': template.id,
     });
 
+    final last = template.lastGeneratedMonth == null
+        ? targetMonth
+        : (targetMonth.isAfter(recurringMonthStart(template.lastGeneratedMonth!))
+            ? targetMonth
+            : recurringMonthStart(template.lastGeneratedMonth!));
+
     await _client.from(_templates).update({
       'amount': amount,
       'last_generated_month':
-          '${targetMonth.year.toString().padLeft(4, '0')}-'
-          '${targetMonth.month.toString().padLeft(2, '0')}-01',
+          '${last.year.toString().padLeft(4, '0')}-'
+          '${last.month.toString().padLeft(2, '0')}-01',
     }).eq('id', template.id);
   }
 
