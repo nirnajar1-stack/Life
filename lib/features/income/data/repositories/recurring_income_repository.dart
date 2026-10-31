@@ -52,83 +52,148 @@ class RecurringIncomeRepository {
     await _client.from(_templates).delete().eq('id', id);
   }
 
-  Future<void> recordMonthlyIncome({
+  /// Returns the ledger row for [template] in [month], if any.
+  Future<IncomeModel?> fetchIncomeForMonth({
+    required RecurringIncomeModel template,
+    required DateTime month,
+  }) async {
+    final start = incomeMonthStart(month);
+    final end = incomeNextMonth(start);
+
+    final byId = await _client
+        .from(_ledger)
+        .select()
+        .eq('recurring_income_id', template.id)
+        .gte('created_at', start.toIso8601String())
+        .lt('created_at', end.toIso8601String())
+        .order('created_at')
+        .limit(1);
+    final idRows = byId as List;
+    if (idRows.isNotEmpty) {
+      return IncomeModel.fromJson(Map<String, dynamic>.from(idRows.first as Map));
+    }
+
+    // Fallback for older rows without recurring_income_id.
+    final byTitle = await _client
+        .from(_ledger)
+        .select()
+        .gte('created_at', start.toIso8601String())
+        .lt('created_at', end.toIso8601String())
+        .order('created_at');
+    final normalized = _normalizeTitle(template.title);
+    for (final row in byTitle as List) {
+      final map = Map<String, dynamic>.from(row as Map);
+      final name = _normalizeTitle(map['title'] as String?);
+      if (_titlesMatch(normalized, name)) {
+        return IncomeModel.fromJson(map);
+      }
+    }
+    return null;
+  }
+
+  /// Creates or updates the net amount for [template] on [incomeDate].
+  /// The period is the calendar month of [incomeDate].
+  Future<IncomeModel> upsertMonthlyIncome({
     required RecurringIncomeModel template,
     required double netAmount,
-    DateTime? month,
+    required DateTime incomeDate,
   }) async {
     if (netAmount <= 0) {
       throw ArgumentError('netAmount must be > 0');
     }
 
-    final targetMonth = incomeMonthStart(month ?? DateTime.now());
-    if (await _incomeExistsForTemplate(template, targetMonth)) {
-      throw StateError('כבר נרשמה הכנסה לחודש זה');
-    }
+    final targetMonth = incomeMonthStart(incomeDate);
+    final day = incomeDate.day.clamp(1, _daysInMonth(targetMonth));
+    final resolvedDate = DateTime(targetMonth.year, targetMonth.month, day);
 
-    final day = template.dayOfMonth.clamp(1, 28);
-    final incomeDate = DateTime(targetMonth.year, targetMonth.month, day);
-    final income = IncomeModel(
-      id: 0,
-      createdAt: incomeDate,
-      title: template.title,
-      amount: netAmount,
-      category: template.category,
-      subCategory: template.subCategory,
-      incomeType: IncomeType.salary,
-      source: 'life_app_recurring',
-      recurringIncomeId: template.id,
-      insertedAt: DateTime.now(),
+    final existing = await fetchIncomeForMonth(
+      template: template,
+      month: targetMonth,
     );
 
-    await _client.from(_ledger).insert(income.toJsonForInsert());
+    late final IncomeModel saved;
+    if (existing != null) {
+      final row = await _client
+          .from(_ledger)
+          .update({
+            'amount': netAmount,
+            'created_at': resolvedDate.toIso8601String(),
+            'title': template.title,
+            'category': template.category,
+            'sub_category': template.subCategory,
+            'recurring_income_id': template.id,
+          })
+          .eq('id', existing.id)
+          .select()
+          .single();
+      saved = IncomeModel.fromJson(Map<String, dynamic>.from(row));
+    } else {
+      final income = IncomeModel(
+        id: 0,
+        createdAt: resolvedDate,
+        title: template.title,
+        amount: netAmount,
+        category: template.category,
+        subCategory: template.subCategory,
+        incomeType: IncomeType.salary,
+        source: 'life_app_recurring',
+        recurringIncomeId: template.id,
+        insertedAt: DateTime.now(),
+      );
+      final row =
+          await _client.from(_ledger).insert(income.toJsonForInsert()).select().single();
+      saved = IncomeModel.fromJson(Map<String, dynamic>.from(row));
+    }
+
+    await _updateTemplateAfterRecord(
+      template: template,
+      netAmount: netAmount,
+      targetMonth: targetMonth,
+    );
+    return saved;
+  }
+
+  /// Backward-compatible alias used by older call sites.
+  Future<void> recordMonthlyIncome({
+    required RecurringIncomeModel template,
+    required double netAmount,
+    DateTime? month,
+    DateTime? incomeDate,
+  }) async {
+    final date = incomeDate ??
+        () {
+          final m = incomeMonthStart(month ?? DateTime.now());
+          final day = template.dayOfMonth.clamp(1, _daysInMonth(m));
+          return DateTime(m.year, m.month, day);
+        }();
+    await upsertMonthlyIncome(
+      template: template,
+      netAmount: netAmount,
+      incomeDate: date,
+    );
+  }
+
+  Future<void> _updateTemplateAfterRecord({
+    required RecurringIncomeModel template,
+    required double netAmount,
+    required DateTime targetMonth,
+  }) async {
+    final last = template.lastRecordedMonth;
+    final shouldBumpLast = last == null ||
+        !targetMonth.isBefore(incomeMonthStart(last));
+
     await _client.from(_templates).update({
-      'amount': netAmount,
-      'last_recorded_month':
-          '${targetMonth.year.toString().padLeft(4, '0')}-'
-          '${targetMonth.month.toString().padLeft(2, '0')}-01',
+      // Prefill "last amount" only when recording the latest period.
+      if (shouldBumpLast) 'amount': netAmount,
+      if (shouldBumpLast)
+        'last_recorded_month':
+            '${targetMonth.year.toString().padLeft(4, '0')}-'
+            '${targetMonth.month.toString().padLeft(2, '0')}-01',
     }).eq('id', template.id);
   }
 
-  Future<bool> _incomeExistsForTemplate(
-    RecurringIncomeModel template,
-    DateTime month,
-  ) async {
-    if (await _incomeExistsByRecurringId(template.id, month)) return true;
-    return _incomeExistsBySimilarTitle(template.title, month);
-  }
-
-  Future<bool> _incomeExistsByRecurringId(String templateId, DateTime month) async {
-    final start = incomeMonthStart(month);
-    final end = incomeNextMonth(start);
-    final rows = await _client
-        .from(_ledger)
-        .select('id')
-        .eq('recurring_income_id', templateId)
-        .gte('created_at', start.toIso8601String())
-        .lt('created_at', end.toIso8601String())
-        .limit(1);
-    return (rows as List).isNotEmpty;
-  }
-
-  Future<bool> _incomeExistsBySimilarTitle(String title, DateTime month) async {
-    final normalized = _normalizeTitle(title);
-    if (normalized.isEmpty) return false;
-
-    final start = incomeMonthStart(month);
-    final end = incomeNextMonth(start);
-    final rows = await _client
-        .from(_ledger)
-        .select('title')
-        .gte('created_at', start.toIso8601String())
-        .lt('created_at', end.toIso8601String());
-
-    for (final row in rows as List) {
-      final name = _normalizeTitle((row as Map)['title'] as String?);
-      if (_titlesMatch(normalized, name)) return true;
-    }
-    return false;
-  }
+  int _daysInMonth(DateTime month) =>
+      DateTime(month.year, month.month + 1, 0).day;
 
   Future<Set<String>> _recordedTitlesThisMonth() async {
     final start = incomeMonthStart(DateTime.now());
