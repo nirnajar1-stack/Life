@@ -132,11 +132,10 @@ class AppStatusChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final tone = color ?? Theme.of(context).colorScheme.primary;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: filled ? tone.withValues(alpha: 0.12) : Colors.transparent,
+        color: filled ? tone.withValues(alpha: 0.12) : tone.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: tone.withValues(alpha: 0.22)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -148,7 +147,7 @@ class AppStatusChip extends StatelessWidget {
           Text(
             label,
             style: TextStyle(
-              fontSize: 12,
+              fontSize: 11,
               fontWeight: FontWeight.w700,
               color: tone,
             ),
