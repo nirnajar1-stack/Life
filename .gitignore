@@ -47,3 +47,4 @@ app.*.map.json
 /flutter/
 /.flutter-sdk/
 /.pub-cache/
+__pycache__/
