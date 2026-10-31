@@ -94,7 +94,7 @@ class ExpenseDashboard {
   final double previousMonthTotal;
   final double averageMonthTotal;
 
-  /// Newest months first.
+  /// Newest months first (past months only — never future).
   final List<MonthSpend> monthlyTrend;
 
   final List<NamedAmount> parentCategories;
@@ -192,22 +192,54 @@ String _hebrewSourceLabel(String source) {
 String _monthKey(DateTime d) =>
     '${d.year}-${d.month.toString().padLeft(2, '0')}';
 
-/// Builds dashboard slices from expense rows (already period-filtered).
+/// Builds dashboard slices.
+///
+/// [expenses] — period-filtered rows (for period totals / categories).
+/// [calendarExpenses] — preferably all past+current rows (for MoM + trend).
+/// When [calendarExpenses] is null, falls back to [expenses].
 ExpenseDashboard buildExpenseDashboard(
   List<ExpenseModel> expenses, {
   ExpensePeriod period = ExpensePeriod.all,
   DateTime? now,
+  List<ExpenseModel>? calendarExpenses,
 }) {
   final n = now ?? DateTime.now();
-  if (expenses.isEmpty) return ExpenseDashboard.empty(period);
-
-  final thisMonthKey = _monthKey(DateTime(n.year, n.month));
+  final nextMonthStart = DateTime(n.year, n.month + 1);
   final prevDate = DateTime(n.year, n.month - 1);
+  final thisMonthKey = _monthKey(DateTime(n.year, n.month));
   final prevMonthKey = _monthKey(prevDate);
 
+  final calendar = (calendarExpenses ?? expenses)
+      .where((e) => e.createdAt.isBefore(nextMonthStart))
+      .toList();
+
+  if (expenses.isEmpty && calendar.isEmpty) {
+    return ExpenseDashboard(
+      period: period,
+      grandTotal: 0,
+      totalItems: 0,
+      thisMonthTotal: 0,
+      previousMonthTotal: 0,
+      averageMonthTotal: 0,
+      monthlyTrend: const [],
+      parentCategories: const [],
+      rawCategories: const [],
+      variableTotal: 0,
+      fixedTotal: 0,
+      installmentTotal: 0,
+      variableCount: 0,
+      fixedCount: 0,
+      installmentCount: 0,
+      bySource: const [],
+      topTransactions: const [],
+      topItems: const [],
+      monthComparison: const [],
+      currentMonthLabel: '${_hebrewMonths[n.month]} ${n.year}',
+      previousMonthLabel: '${_hebrewMonths[prevDate.month]} ${prevDate.year}',
+    );
+  }
+
   double grandTotal = 0;
-  double thisMonthTotal = 0;
-  double previousMonthTotal = 0;
   double variableTotal = 0;
   double fixedTotal = 0;
   double installmentTotal = 0;
@@ -215,47 +247,25 @@ ExpenseDashboard buildExpenseDashboard(
   int fixedCount = 0;
   int installmentCount = 0;
 
-  final Map<String, double> monthTotals = {};
-  final Map<String, int> monthItems = {};
-  final Map<String, Set<String>> monthTxKeys = {};
   final Map<String, double> parentTotals = {};
   final Map<String, int> parentCounts = {};
   final Map<String, double> rawTotals = {};
   final Map<String, int> rawCounts = {};
   final Map<String, double> sourceTotals = {};
   final Map<String, int> sourceCounts = {};
-  final Map<String, double> thisMonthByParent = {};
-  final Map<String, double> prevMonthByParent = {};
 
   for (final e in expenses) {
     final personal = e.actualAmount;
     grandTotal += personal;
-    final monthKey = _monthKey(e.createdAt);
-
-    monthTotals[monthKey] = (monthTotals[monthKey] ?? 0) + personal;
-    monthItems[monthKey] = (monthItems[monthKey] ?? 0) + 1;
-
-    final txKey = (e.messageId != null && e.messageId!.trim().isNotEmpty)
-        ? 'm:${e.messageId!.trim()}'
-        : 'i:${e.id}';
-    monthTxKeys.putIfAbsent(monthKey, () => {}).add(txKey);
 
     final parent = ExpenseCategoryTaxonomy.resolveParent(e.category);
     parentTotals[parent] = (parentTotals[parent] ?? 0) + personal;
     parentCounts[parent] = (parentCounts[parent] ?? 0) + 1;
 
-    final raw = e.normalizedCategory.isEmpty ? 'ללא קטגוריה' : e.normalizedCategory;
+    final raw =
+        e.normalizedCategory.isEmpty ? 'ללא קטגוריה' : e.normalizedCategory;
     rawTotals[raw] = (rawTotals[raw] ?? 0) + personal;
     rawCounts[raw] = (rawCounts[raw] ?? 0) + 1;
-
-    if (monthKey == thisMonthKey) {
-      thisMonthTotal += personal;
-      thisMonthByParent[parent] = (thisMonthByParent[parent] ?? 0) + personal;
-    }
-    if (monthKey == prevMonthKey) {
-      previousMonthTotal += personal;
-      prevMonthByParent[parent] = (prevMonthByParent[parent] ?? 0) + personal;
-    }
 
     final nature = ExpenseNatureX.resolve(
       isFixed: e.isFixed,
@@ -276,6 +286,37 @@ ExpenseDashboard buildExpenseDashboard(
     final source = _cleanSource(e.source);
     sourceTotals[source] = (sourceTotals[source] ?? 0) + personal;
     sourceCounts[source] = (sourceCounts[source] ?? 0) + 1;
+  }
+
+  // Calendar MoM + trend always use past/current months from [calendar].
+  double thisMonthTotal = 0;
+  double previousMonthTotal = 0;
+  final Map<String, double> monthTotals = {};
+  final Map<String, int> monthItems = {};
+  final Map<String, Set<String>> monthTxKeys = {};
+  final Map<String, double> thisMonthByParent = {};
+  final Map<String, double> prevMonthByParent = {};
+
+  for (final e in calendar) {
+    final personal = e.actualAmount;
+    final monthKey = _monthKey(e.createdAt);
+    monthTotals[monthKey] = (monthTotals[monthKey] ?? 0) + personal;
+    monthItems[monthKey] = (monthItems[monthKey] ?? 0) + 1;
+
+    final txKey = (e.messageId != null && e.messageId!.trim().isNotEmpty)
+        ? 'm:${e.messageId!.trim()}'
+        : 'i:${e.id}';
+    monthTxKeys.putIfAbsent(monthKey, () => {}).add(txKey);
+
+    final parent = ExpenseCategoryTaxonomy.resolveParent(e.category);
+    if (monthKey == thisMonthKey) {
+      thisMonthTotal += personal;
+      thisMonthByParent[parent] = (thisMonthByParent[parent] ?? 0) + personal;
+    }
+    if (monthKey == prevMonthKey) {
+      previousMonthTotal += personal;
+      prevMonthByParent[parent] = (prevMonthByParent[parent] ?? 0) + personal;
+    }
   }
 
   final monthKeys = monthTotals.keys.toList()..sort((a, b) => b.compareTo(a));
@@ -370,3 +411,4 @@ ExpenseDashboard buildExpenseDashboard(
     previousMonthLabel: '${_hebrewMonths[prevDate.month]} ${prevDate.year}',
   );
 }
+

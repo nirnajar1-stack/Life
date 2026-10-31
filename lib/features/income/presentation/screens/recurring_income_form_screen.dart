@@ -156,7 +156,8 @@ class _RecurringIncomeFormScreenState
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    'כל חודש תזין את הסכום הנטו שקיבלת בפועל.',
+                    'זו תבנית בלבד — אין רישום אוטומטי. בכל פעם שתקבל משכורת, '
+                    'הזן סכום ותאריך מלשונית קבועות.',
                     style: TextStyle(color: AppColors.muted, fontSize: 12),
                   ),
                   const SizedBox(height: 16),

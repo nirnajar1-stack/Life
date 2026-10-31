@@ -38,14 +38,35 @@ DateTime? periodStart(ExpensePeriod period, {DateTime? now}) {
   }
 }
 
+/// Exclusive end of the selected period.
+///
+/// Caps at the start of next calendar month so future installment / recurring
+/// charges never leak into "החודש" / trend / period totals.
+DateTime? periodEndExclusive(ExpensePeriod period, {DateTime? now}) {
+  final n = now ?? DateTime.now();
+  final nextMonth = DateTime(n.year, n.month + 1);
+  switch (period) {
+    case ExpensePeriod.thisMonth:
+    case ExpensePeriod.last3Months:
+    case ExpensePeriod.yearToDate:
+    case ExpensePeriod.all:
+      return nextMonth;
+  }
+}
+
 /// Filters expenses to those whose [createdAt] falls inside [period].
 List<ExpenseModel> filterExpensesByPeriod(
   List<ExpenseModel> expenses,
   ExpensePeriod period, {
   DateTime? now,
+  bool includeFuture = false,
 }) {
   final start = periodStart(period, now: now);
-  if (start == null) return List<ExpenseModel>.from(expenses);
+  final end = includeFuture ? null : periodEndExclusive(period, now: now);
 
-  return expenses.where((e) => !e.createdAt.isBefore(start)).toList();
+  return expenses.where((e) {
+    if (start != null && e.createdAt.isBefore(start)) return false;
+    if (end != null && !e.createdAt.isBefore(end)) return false;
+    return true;
+  }).toList();
 }
