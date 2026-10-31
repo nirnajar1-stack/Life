@@ -32,14 +32,32 @@ final expensesRawProvider = FutureProvider<List<ExpenseModel>>((ref) async {
 final expensePeriodProvider =
     StateProvider<ExpensePeriod>((ref) => ExpensePeriod.thisMonth);
 
+/// Inclusive start for [ExpensePeriod.custom].
+final expenseCustomStartProvider = StateProvider<DateTime?>((ref) {
+  final now = DateTime.now();
+  return DateTime(now.year, now.month, 1);
+});
+
+/// Inclusive end for [ExpensePeriod.custom].
+final expenseCustomEndProvider = StateProvider<DateTime?>((ref) {
+  return DateTime.now();
+});
+
 /// Client-side search over the ledger (item name / category).
 final expenseSearchQueryProvider = StateProvider<String>((ref) => '');
 
 /// Expenses filtered by the selected [expensePeriodProvider].
 final filteredExpensesProvider = Provider<AsyncValue<List<ExpenseModel>>>((ref) {
   final period = ref.watch(expensePeriodProvider);
+  final customStart = ref.watch(expenseCustomStartProvider);
+  final customEnd = ref.watch(expenseCustomEndProvider);
   return ref.watch(expensesRawProvider).whenData(
-        (all) => filterExpensesByPeriod(all, period),
+        (all) => filterExpensesByPeriod(
+          all,
+          period,
+          customStart: customStart,
+          customEnd: customEnd,
+        ),
       );
 });
 

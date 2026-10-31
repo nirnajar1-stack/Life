@@ -407,20 +407,11 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
                                   .state = value,
                             ),
                             const SizedBox(height: 12),
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: [
-                                for (final p in ExpensePeriod.values)
-                                  ChoiceChip(
-                                    showCheckmark: false,
-                                    label: Text(p.label),
-                                    selected: period == p,
-                                    onSelected: (_) => ref
-                                        .read(expensePeriodProvider.notifier)
-                                        .state = p,
-                                  ),
-                              ],
+                            _LedgerPeriodFilter(
+                              selected: period,
+                              onChanged: (p) => ref
+                                  .read(expensePeriodProvider.notifier)
+                                  .state = p,
                             ),
                             const SizedBox(height: 12),
                             if (visible.isEmpty && query.trim().isNotEmpty)
@@ -548,7 +539,104 @@ class _ExpensesFabState extends State<_ExpensesFab> {
   }
 }
 
-class _MonthlyLedger extends StatelessWidget {
+class _LedgerPeriodFilter extends ConsumerWidget {
+  const _LedgerPeriodFilter({
+    required this.selected,
+    required this.onChanged,
+  });
+
+  final ExpensePeriod selected;
+  final ValueChanged<ExpensePeriod> onChanged;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final customStart = ref.watch(expenseCustomStartProvider);
+    final customEnd = ref.watch(expenseCustomEndProvider);
+    final dateFormat = DateFormat('dd/MM/yyyy', 'he');
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'תקופת זמן',
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final period in ExpensePeriod.values)
+              ChoiceChip(
+                showCheckmark: false,
+                label: Text(period.label),
+                selected: selected == period,
+                onSelected: (_) => onChanged(period),
+              ),
+          ],
+        ),
+        if (selected == ExpensePeriod.custom) ...[
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: customStart ?? DateTime.now(),
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime(2100),
+                      helpText: 'מתאריך',
+                    );
+                    if (picked != null) {
+                      ref.read(expenseCustomStartProvider.notifier).state =
+                          picked;
+                    }
+                  },
+                  icon: const Icon(Icons.calendar_today_outlined, size: 16),
+                  label: Text(
+                    customStart == null
+                        ? 'מתאריך'
+                        : 'מ-${dateFormat.format(customStart)}',
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: customEnd ?? DateTime.now(),
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime(2100),
+                      helpText: 'עד תאריך',
+                    );
+                    if (picked != null) {
+                      ref.read(expenseCustomEndProvider.notifier).state =
+                          picked;
+                    }
+                  },
+                  icon: const Icon(Icons.event_outlined, size: 16),
+                  label: Text(
+                    customEnd == null
+                        ? 'עד תאריך'
+                        : 'עד ${dateFormat.format(customEnd)}',
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _MonthlyLedger extends StatefulWidget {
   const _MonthlyLedger({
     required this.months,
     required this.onEdit,
@@ -568,35 +656,91 @@ class _MonthlyLedger extends StatelessWidget {
   final VoidCallback onAdd;
 
   @override
+  State<_MonthlyLedger> createState() => _MonthlyLedgerState();
+}
+
+class _MonthlyLedgerState extends State<_MonthlyLedger> {
+  bool _showFutureMonths = false;
+
+  bool _isFutureMonth(ExpenseMonthSection section, DateTime currentMonth) {
+    return section.monthStart.isAfter(currentMonth);
+  }
+
+  Widget _buildMonthBlock(ExpenseMonthSection month) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _MonthHeader(section: month),
+        const SizedBox(height: 8),
+        for (final tx in month.transactions)
+          _TransactionTile(
+            transaction: tx,
+            onEdit: widget.onEdit,
+            onDelete: widget.onDelete,
+            onToggleShared: () => widget.onToggleShared(tx),
+            onEditShared: () => widget.onEditShared(tx),
+            onDeleteTransaction: () => widget.onDeleteTransaction(tx),
+          ),
+        const SizedBox(height: 20),
+      ],
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
-    if (months.isEmpty) {
+    if (widget.months.isEmpty) {
       return AppEmptyState(
         icon: Icons.receipt_long_outlined,
         title: 'אין הוצאות להצגה',
         message: 'הוסף הוצאה או שנה את טווח התקופה.',
         actionLabel: 'הוצאה חדשה',
-        onAction: onAdd,
+        onAction: widget.onAdd,
         compact: true,
       );
     }
 
+    final now = DateTime.now();
+    final currentMonth = DateTime(now.year, now.month);
+    final futureMonths = <ExpenseMonthSection>[];
+    final currentAndPast = <ExpenseMonthSection>[];
+    for (final month in widget.months) {
+      if (_isFutureMonth(month, currentMonth)) {
+        futureMonths.add(month);
+      } else {
+        currentAndPast.add(month);
+      }
+    }
+
+    final futureTotal = futureMonths.fold<double>(0, (s, m) => s + m.total);
+    final futureTxCount =
+        futureMonths.fold<int>(0, (s, m) => s + m.transactionCount);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        for (final month in months) ...[
-          _MonthHeader(section: month),
-          const SizedBox(height: 8),
-          for (final tx in month.transactions)
-            _TransactionTile(
-              transaction: tx,
-              onEdit: onEdit,
-              onDelete: onDelete,
-              onToggleShared: () => onToggleShared(tx),
-              onEditShared: () => onEditShared(tx),
-              onDeleteTransaction: () => onDeleteTransaction(tx),
+        if (futureMonths.isNotEmpty) ...[
+          OutlinedButton.icon(
+            onPressed: () =>
+                setState(() => _showFutureMonths = !_showFutureMonths),
+            icon: Icon(
+              _showFutureMonths
+                  ? Icons.expand_less
+                  : Icons.expand_more,
             ),
-          const SizedBox(height: 20),
+            label: Text(
+              _showFutureMonths
+                  ? 'הסתר חודשים עתידיים'
+                  : 'הצג חודשים עתידיים · ${futureMonths.length} חודשים · '
+                      '${_currency.format(futureTotal)} · $futureTxCount תנועות',
+            ),
+          ),
+          const SizedBox(height: 12),
+          if (_showFutureMonths) ...[
+            for (final month in futureMonths) _buildMonthBlock(month),
+            const Divider(height: 28),
+          ],
         ],
+        for (final month in currentAndPast) _buildMonthBlock(month),
       ],
     );
   }
