@@ -31,15 +31,21 @@ class MoneyHubScreen extends ConsumerWidget {
       child: DefaultTabController(
         length: 2,
         child: Scaffold(
+          backgroundColor: AppColors.surface,
           appBar: AppBar(
             title: const Text('כסף'),
             automaticallyImplyLeading: false,
             bottom: PreferredSize(
-              preferredSize: const Size.fromHeight(148),
+              preferredSize: const Size.fromHeight(168),
               child: Column(
                 children: [
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.md,
+                      0,
+                      AppSpacing.md,
+                      AppSpacing.sm + AppSpacing.xs,
+                    ),
                     child: _CashflowBanner(
                       income: income,
                       expense: expense,
@@ -110,14 +116,14 @@ class _CashflowBanner extends StatelessWidget {
                     value: _currency.format(income),
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: AppSpacing.sm),
                 Expanded(
                   child: _CashStat(
                     label: 'הוצאות',
                     value: _currency.format(expense),
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: AppSpacing.sm),
                 Expanded(
                   child: _CashStat(
                     label: 'נטו',
@@ -139,10 +145,13 @@ class _CashStat extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      padding: const EdgeInsets.symmetric(
+        horizontal: 10,
+        vertical: AppSpacing.sm,
+      ),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(AppRadii.sm + 2),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

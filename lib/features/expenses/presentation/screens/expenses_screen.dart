@@ -6,6 +6,7 @@ import '../../../../core/layout/app_layout.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/adaptive_form.dart';
 import '../../../../core/widgets/app_feedback.dart';
+import '../../../../core/widgets/app_filter_chips.dart';
 import '../../../../core/widgets/app_search_field.dart';
 import '../../data/models/expense_model.dart';
 import '../../domain/models/expense_ledger.dart';
@@ -406,15 +407,12 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
                                   .read(expenseSearchQueryProvider.notifier)
                                   .state = value,
                             ),
-                            const SizedBox(height: 12),
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
+                            const SizedBox(height: AppSpacing.sm + AppSpacing.xs),
+                            AppFilterChipBar(
                               children: [
                                 for (final p in ExpensePeriod.values)
-                                  ChoiceChip(
-                                    showCheckmark: false,
-                                    label: Text(p.label),
+                                  SoftFilterChip(
+                                    label: p.label,
                                     selected: period == p,
                                     onSelected: (_) => ref
                                         .read(expensePeriodProvider.notifier)
@@ -422,7 +420,7 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
                                   ),
                               ],
                             ),
-                            const SizedBox(height: 12),
+                            const SizedBox(height: AppSpacing.sm + AppSpacing.xs),
                             if (visible.isEmpty && query.trim().isNotEmpty)
                               const AppEmptyState(
                                 icon: Icons.search_off,
@@ -634,20 +632,42 @@ class _MonthlyLedgerState extends State<_MonthlyLedger> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (futureMonths.isNotEmpty) ...[
-          OutlinedButton.icon(
-            onPressed: () =>
+          SoftCard(
+            onTap: () =>
                 setState(() => _showFutureMonths = !_showFutureMonths),
-            icon: Icon(
-              _showFutureMonths ? Icons.expand_less : Icons.expand_more,
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.md,
+              vertical: AppSpacing.sm + AppSpacing.xs,
             ),
-            label: Text(
-              _showFutureMonths
-                  ? 'הסתר חודשים עתידיים'
-                  : 'חודשים עתידיים · ${futureMonths.length} · '
-                      '${_currency.format(futureTotal)} · $futureTxCount תנועות',
+            child: Row(
+              children: [
+                Icon(
+                  _showFutureMonths
+                      ? Icons.expand_less
+                      : Icons.expand_more,
+                  color: AppColors.muted,
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Text(
+                    _showFutureMonths
+                        ? 'הסתר חודשים עתידיים'
+                        : 'חודשים עתידיים · ${futureMonths.length} · '
+                            '${_currency.format(futureTotal)} · $futureTxCount תנועות',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.ink,
+                    ),
+                  ),
+                ),
+                const StatusPill(
+                  label: 'עתידי',
+                  tone: StatusPillTone.info,
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.sm + AppSpacing.xs),
           if (_showFutureMonths) ...[
             for (final month in futureMonths) _buildMonthBlock(month),
             const Divider(height: 28),
@@ -741,8 +761,8 @@ class _TransactionTile extends StatelessWidget {
     final isShared = transaction.isShared;
     final split = transaction.sharedSplit;
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
+    return SoftCard(
+      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
@@ -750,12 +770,12 @@ class _TransactionTile extends StatelessWidget {
           childrenPadding: const EdgeInsets.only(bottom: 8),
           leading: CircleAvatar(
             backgroundColor: AppColors.expenses.withValues(alpha: 0.12),
-            child: const Icon(Icons.receipt_long,
+            child: const Icon(Icons.receipt_long_outlined,
                 color: AppColors.expenses, size: 20),
           ),
           title: Text(
             transaction.title,
-            style: const TextStyle(fontWeight: FontWeight.w800),
+            style: const TextStyle(fontWeight: FontWeight.w700),
           ),
           subtitle: Padding(
             padding: const EdgeInsets.only(top: 4),
@@ -912,8 +932,8 @@ class _SingleExpenseRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final allowSwipe = MediaQuery.sizeOf(context).width < 900;
-    final tile = Card(
-      margin: const EdgeInsets.only(bottom: 8),
+    final tile = SoftCard(
+      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
       child: ListTile(
         onTap: onEdit,
         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),

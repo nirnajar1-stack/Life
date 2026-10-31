@@ -139,35 +139,33 @@ class HomeScreen extends ConsumerWidget {
           context: context,
           child: ListView(
             padding: AppLayout.pagePadding.copyWith(
-              top: 16,
-              bottom: 40,
+              top: AppSpacing.md,
+              bottom: AppSpacing.xl + AppSpacing.sm,
             ),
             children: [
               if (tasksAsync.hasError ||
                   expensesAsync.hasError ||
                   incomesAsync.hasError ||
                   habitsAsync.hasError)
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Text(
-                      [
-                        if (tasksAsync.hasError)
-                          'לא ניתן לטעון משימות: ${tasksAsync.error}',
-                        if (expensesAsync.hasError)
-                          'לא ניתן לטעון הוצאות: ${expensesAsync.error}',
-                        if (incomesAsync.hasError)
-                          'לא ניתן לטעון הכנסות: ${incomesAsync.error}',
-                        if (habitsAsync.hasError)
-                          'לא ניתן לטעון הרגלים: ${habitsAsync.error}',
-                      ].join('\n'),
-                      style: const TextStyle(color: AppColors.danger),
-                    ),
+                SoftCard(
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  child: Text(
+                    [
+                      if (tasksAsync.hasError)
+                        'לא ניתן לטעון משימות: ${tasksAsync.error}',
+                      if (expensesAsync.hasError)
+                        'לא ניתן לטעון הוצאות: ${expensesAsync.error}',
+                      if (incomesAsync.hasError)
+                        'לא ניתן לטעון הכנסות: ${incomesAsync.error}',
+                      if (habitsAsync.hasError)
+                        'לא ניתן לטעון הרגלים: ${habitsAsync.error}',
+                    ].join('\n'),
+                    style: const TextStyle(color: AppColors.danger),
                   ),
                 )
               else ...[
                 _HomeGreetingHeader(greeting: _greeting()),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppLayout.sectionGap),
                 _BriefingCard(
                   digest: digest,
                   loading: loading,
@@ -180,21 +178,21 @@ class HomeScreen extends ConsumerWidget {
                   onOpenCalendar: () =>
                       ref.read(appTabProvider.notifier).state = AppTab.calendar,
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppLayout.sectionGap),
                 _QuickActions(
                   onAddTask: () => _openTaskForm(context, ref),
                   onAddExpense: () => _openExpenseForm(context, ref),
                   onAddHabit: () => _openHabitForm(context, ref),
                   onAddEvent: () => _openEventForm(context, ref),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppLayout.sectionGap),
                 const NotificationCard(),
-                const SizedBox(height: 24),
+                const SizedBox(height: AppSpacing.lg),
                 UpcomingEventsPanel(
                   onOpenAll: () =>
                       ref.read(appTabProvider.notifier).state = AppTab.calendar,
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppLayout.sectionGap),
                 _DigestColumns(
                   digest: digest,
                   habits: habitsAsync.valueOrNull ?? const [],
@@ -249,7 +247,7 @@ class _DigestColumns extends StatelessWidget {
           onOpenTask: onOpenTask,
           onToggleTask: onToggleTask,
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: AppSpacing.lg - AppSpacing.xs),
         _HabitsCard(
           digest: digest,
           habits: habits,
@@ -271,7 +269,7 @@ class _DigestColumns extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(child: tasksColumn),
-              const SizedBox(width: 16),
+              const SizedBox(width: AppSpacing.md),
               Expanded(child: moneyColumn),
             ],
           );
@@ -279,7 +277,7 @@ class _DigestColumns extends StatelessWidget {
         return Column(
           children: [
             tasksColumn,
-            const SizedBox(height: 20),
+            const SizedBox(height: AppSpacing.lg - AppSpacing.xs),
             moneyColumn,
           ],
         );
@@ -466,7 +464,10 @@ class _QuickActions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SoftCard(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.sm + AppSpacing.xs,
+      ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
@@ -484,7 +485,7 @@ class _QuickActions extends StatelessWidget {
           ),
           QuickActionCircle(
             onTap: onAddHabit,
-            icon: Icons.loop,
+            icon: Icons.loop_outlined,
             label: 'הרגל',
             color: AppColors.habits,
           ),
@@ -530,15 +531,20 @@ class _FocusCard extends StatelessWidget {
           actionLabel: 'הכל',
           onAction: onOpenAll,
         ),
-        Card(
+        SoftCard(
           child: loading
               ? const Padding(
-                  padding: EdgeInsets.all(24),
+                  padding: EdgeInsets.all(AppSpacing.lg),
                   child: Center(child: CircularProgressIndicator()),
                 )
               : items.isEmpty
                   ? const Padding(
-                      padding: EdgeInsets.fromLTRB(16, 20, 16, 20),
+                      padding: EdgeInsets.fromLTRB(
+                        AppSpacing.md,
+                        AppSpacing.lg - AppSpacing.xs,
+                        AppSpacing.md,
+                        AppSpacing.lg - AppSpacing.xs,
+                      ),
                       child: Text(
                         'אין משימות דחופות להיום. אפשר להמשיך ברוגע.',
                         style: TextStyle(color: AppColors.muted, height: 1.35),
@@ -649,15 +655,20 @@ class _HabitsCard extends StatelessWidget {
           actionLabel: 'הכל',
           onAction: onOpenAll,
         ),
-        Card(
+        SoftCard(
           child: loading
               ? const Padding(
-                  padding: EdgeInsets.all(24),
+                  padding: EdgeInsets.all(AppSpacing.lg),
                   child: Center(child: CircularProgressIndicator()),
                 )
               : items.isEmpty
                   ? const Padding(
-                      padding: EdgeInsets.fromLTRB(16, 20, 16, 20),
+                      padding: EdgeInsets.fromLTRB(
+                        AppSpacing.md,
+                        AppSpacing.lg - AppSpacing.xs,
+                        AppSpacing.md,
+                        AppSpacing.lg - AppSpacing.xs,
+                      ),
                       child: Text(
                         'אין הרגלים מתוזמנים להיום.',
                         style: TextStyle(color: AppColors.muted, height: 1.35),
@@ -706,153 +717,153 @@ class _MoneyCard extends StatelessWidget {
           actionLabel: 'הכל',
           onAction: onOpenAll,
         ),
-        Card(
-          child: InkWell(
-            onTap: onOpenAll,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-              child: loading
-                  ? const Center(child: CircularProgressIndicator())
-                  : Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'נטו החודש',
-                          style: TextStyle(
-                            color: AppColors.muted,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 13,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          _currency.format(digest.monthNet),
-                          style: Theme.of(context)
-                              .textTheme
-                              .headlineSmall
-                              ?.copyWith(
-                                fontWeight: FontWeight.w800,
-                                color: digest.monthNet >= 0
-                                    ? AppColors.income
-                                    : AppColors.danger,
-                              ),
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                'הכנסות ${_currency.format(digest.monthIncome)}',
-                                style: const TextStyle(
-                                  color: AppColors.income,
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ),
-                            Expanded(
-                              child: Text(
-                                'הוצאות ${_currency.format(digest.monthTotal)}',
-                                style: const TextStyle(
-                                  color: AppColors.expenses,
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          deltaLabel,
-                          style: TextStyle(
-                            color: deltaColor,
+        SoftCard(
+          onTap: onOpenAll,
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.md,
+            14,
+            AppSpacing.md,
+            14,
+          ),
+          child: loading
+              ? const Center(child: CircularProgressIndicator())
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'נטו החודש',
+                      style: TextStyle(
+                        color: AppColors.muted,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      _currency.format(digest.monthNet),
+                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                             fontWeight: FontWeight.w700,
-                            fontSize: 12,
+                            color: digest.monthNet >= 0
+                                ? AppColors.income
+                                : AppColors.danger,
                           ),
-                        ),
-                        if (digest.todaySpend > 0) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            'היום ${_currency.format(digest.todaySpend)}',
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'הכנסות ${_currency.format(digest.monthIncome)}',
                             style: const TextStyle(
-                              color: AppColors.muted,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                        if (digest.topCategory != null) ...[
-                          const SizedBox(height: 12),
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 10,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppColors.expenses.withValues(alpha: 0.08),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Text(
-                              'הקטגוריה הבולטת: ${digest.topCategory}'
-                              ' · ${_currency.format(digest.topCategoryAmount ?? 0)}',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.expenses,
-                              ),
-                            ),
-                          ),
-                        ],
-                        if (digest.recent.isNotEmpty) ...[
-                          const SizedBox(height: 12),
-                          const Text(
-                            'אחרונות',
-                            style: TextStyle(
-                              color: AppColors.muted,
+                              color: AppColors.income,
                               fontWeight: FontWeight.w700,
                               fontSize: 12,
                             ),
                           ),
-                          const SizedBox(height: 4),
-                          for (final expense in digest.recent)
-                            Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 4),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      expense.itemName.isEmpty
-                                          ? '(ללא שם)'
-                                          : expense.itemName,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    _currency.format(expense.amount),
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w800,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                        ] else
-                          const Padding(
-                            padding: EdgeInsets.only(top: 8),
-                            child: Text(
-                              'אין הוצאות עדיין.',
-                              style: TextStyle(color: AppColors.muted),
+                        ),
+                        Expanded(
+                          child: Text(
+                            'הוצאות ${_currency.format(digest.monthTotal)}',
+                            style: const TextStyle(
+                              color: AppColors.expenses,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 12,
                             ),
                           ),
+                        ),
                       ],
                     ),
-            ),
-          ),
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(
+                      deltaLabel,
+                      style: TextStyle(
+                        color: deltaColor,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 12,
+                      ),
+                    ),
+                    if (digest.todaySpend > 0) ...[
+                      const SizedBox(height: AppSpacing.xs),
+                      Text(
+                        'היום ${_currency.format(digest.todaySpend)}',
+                        style: const TextStyle(
+                          color: AppColors.muted,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                    if (digest.topCategory != null) ...[
+                      const SizedBox(height: AppSpacing.sm + AppSpacing.xs),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.sm + AppSpacing.xs,
+                          vertical: 10,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.expenses.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(AppRadii.sm),
+                        ),
+                        child: Text(
+                          'הקטגוריה הבולטת: ${digest.topCategory}'
+                          ' · ${_currency.format(digest.topCategoryAmount ?? 0)}',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.expenses,
+                          ),
+                        ),
+                      ),
+                    ],
+                    if (digest.recent.isNotEmpty) ...[
+                      const SizedBox(height: AppSpacing.sm + AppSpacing.xs),
+                      const Text(
+                        'אחרונות',
+                        style: TextStyle(
+                          color: AppColors.muted,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 12,
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.xs),
+                      for (final expense in digest.recent)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            vertical: AppSpacing.xs,
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  expense.itemName.isEmpty
+                                      ? '(ללא שם)'
+                                      : expense.itemName,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: AppSpacing.sm),
+                              Text(
+                                _currency.format(expense.amount),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ] else
+                      const Padding(
+                        padding: EdgeInsets.only(top: AppSpacing.sm),
+                        child: Text(
+                          'אין הוצאות עדיין.',
+                          style: TextStyle(color: AppColors.muted),
+                        ),
+                      ),
+                  ],
+                ),
         ),
       ],
     );

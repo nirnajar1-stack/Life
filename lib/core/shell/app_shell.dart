@@ -54,62 +54,76 @@ class AppShell extends ConsumerWidget {
       ref.read(captureFocusTickProvider.notifier).state++;
     }
 
+    final destinations = [
+      const NavigationRailDestination(
+        icon: Icon(Icons.home_outlined),
+        selectedIcon: Icon(Icons.home_rounded),
+        label: Text('בית'),
+      ),
+      NavigationRailDestination(
+        icon: badgeIcon(
+          outlined: Icons.checklist_outlined,
+          selected: Icons.checklist_rtl,
+          isSelected: false,
+        ),
+        selectedIcon: badgeIcon(
+          outlined: Icons.checklist_outlined,
+          selected: Icons.checklist_rtl,
+          isSelected: true,
+        ),
+        label: const Text('משימות'),
+      ),
+      const NavigationRailDestination(
+        icon: Icon(Icons.loop_outlined),
+        selectedIcon: Icon(Icons.loop),
+        label: Text('הרגלים'),
+      ),
+      const NavigationRailDestination(
+        icon: Icon(Icons.calendar_month_outlined),
+        selectedIcon: Icon(Icons.calendar_month),
+        label: Text('יומן'),
+      ),
+      const NavigationRailDestination(
+        icon: Icon(Icons.account_balance_wallet_outlined),
+        selectedIcon: Icon(Icons.account_balance_wallet),
+        label: Text('כסף'),
+      ),
+    ];
+
     final scaffold = isDesktop
         ? Scaffold(
             backgroundColor: AppColors.surface,
             body: Row(
               children: [
-                NavigationRail(
-                  extended: MediaQuery.sizeOf(context).width >= 1180,
-                  selectedIndex: index,
-                  labelType: MediaQuery.sizeOf(context).width >= 1180
-                      ? NavigationRailLabelType.none
-                      : NavigationRailLabelType.all,
-                  onDestinationSelected: (i) {
-                    ref.read(appTabProvider.notifier).state = AppTab.values[i];
-                  },
-                  minExtendedWidth: 196,
-                  leading: const Padding(
-                    padding: EdgeInsets.fromLTRB(12, 20, 12, 16),
-                    child: _BrandMark(),
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: AppColors.card,
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.ink.withValues(alpha: 0.04),
+                        blurRadius: 18,
+                        offset: const Offset(2, 0),
+                      ),
+                    ],
                   ),
-                  destinations: [
-                    const NavigationRailDestination(
-                      icon: Icon(Icons.home_outlined),
-                      selectedIcon: Icon(Icons.home_rounded),
-                      label: Text('בית'),
+                  child: NavigationRail(
+                    backgroundColor: Colors.transparent,
+                    extended: MediaQuery.sizeOf(context).width >= 1180,
+                    selectedIndex: index,
+                    labelType: MediaQuery.sizeOf(context).width >= 1180
+                        ? NavigationRailLabelType.none
+                        : NavigationRailLabelType.all,
+                    onDestinationSelected: (i) {
+                      ref.read(appTabProvider.notifier).state = AppTab.values[i];
+                    },
+                    minExtendedWidth: 196,
+                    leading: const Padding(
+                      padding: EdgeInsets.fromLTRB(12, 20, 12, 16),
+                      child: _BrandMark(),
                     ),
-                    NavigationRailDestination(
-                      icon: badgeIcon(
-                        outlined: Icons.checklist_outlined,
-                        selected: Icons.checklist_rtl,
-                        isSelected: false,
-                      ),
-                      selectedIcon: badgeIcon(
-                        outlined: Icons.checklist_outlined,
-                        selected: Icons.checklist_rtl,
-                        isSelected: true,
-                      ),
-                      label: const Text('משימות'),
-                    ),
-                    const NavigationRailDestination(
-                      icon: Icon(Icons.loop_outlined),
-                      selectedIcon: Icon(Icons.loop),
-                      label: Text('הרגלים'),
-                    ),
-                    const NavigationRailDestination(
-                      icon: Icon(Icons.calendar_month_outlined),
-                      selectedIcon: Icon(Icons.calendar_month),
-                      label: Text('יומן'),
-                    ),
-                    const NavigationRailDestination(
-                      icon: Icon(Icons.account_balance_wallet_outlined),
-                      selectedIcon: Icon(Icons.account_balance_wallet),
-                      label: Text('כסף'),
-                    ),
-                  ],
+                    destinations: destinations,
+                  ),
                 ),
-                const VerticalDivider(width: 1),
                 Expanded(
                   child: IndexedStack(index: index, children: pages),
                 ),
@@ -117,42 +131,58 @@ class AppShell extends ConsumerWidget {
             ),
           )
         : Scaffold(
+            backgroundColor: AppColors.surface,
             body: IndexedStack(index: index, children: pages),
-            bottomNavigationBar: NavigationBar(
-              selectedIndex: index,
-              destinations: [
-                const NavigationDestination(
-                  icon: Icon(Icons.home_outlined),
-                  selectedIcon: Icon(Icons.home_rounded),
-                  label: 'בית',
-                ),
-                NavigationDestination(
-                  icon: badgeIcon(
-                    outlined: Icons.checklist_outlined,
-                    selected: Icons.checklist_rtl,
-                    isSelected: index == 1,
+            bottomNavigationBar: DecoratedBox(
+              decoration: BoxDecoration(
+                color: AppColors.card,
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.ink.withValues(alpha: 0.06),
+                    blurRadius: 18,
+                    offset: const Offset(0, -4),
                   ),
-                  label: 'משימות',
-                ),
-                const NavigationDestination(
-                  icon: Icon(Icons.loop_outlined),
-                  selectedIcon: Icon(Icons.loop),
-                  label: 'הרגלים',
-                ),
-                const NavigationDestination(
-                  icon: Icon(Icons.calendar_month_outlined),
-                  selectedIcon: Icon(Icons.calendar_month),
-                  label: 'יומן',
-                ),
-                const NavigationDestination(
-                  icon: Icon(Icons.account_balance_wallet_outlined),
-                  selectedIcon: Icon(Icons.account_balance_wallet),
-                  label: 'כסף',
-                ),
-              ],
-              onDestinationSelected: (i) {
-                ref.read(appTabProvider.notifier).state = AppTab.values[i];
-              },
+                ],
+              ),
+              child: NavigationBar(
+                backgroundColor: Colors.transparent,
+                elevation: 0,
+                shadowColor: Colors.transparent,
+                selectedIndex: index,
+                destinations: [
+                  const NavigationDestination(
+                    icon: Icon(Icons.home_outlined),
+                    selectedIcon: Icon(Icons.home_rounded),
+                    label: 'בית',
+                  ),
+                  NavigationDestination(
+                    icon: badgeIcon(
+                      outlined: Icons.checklist_outlined,
+                      selected: Icons.checklist_rtl,
+                      isSelected: index == 1,
+                    ),
+                    label: 'משימות',
+                  ),
+                  const NavigationDestination(
+                    icon: Icon(Icons.loop_outlined),
+                    selectedIcon: Icon(Icons.loop),
+                    label: 'הרגלים',
+                  ),
+                  const NavigationDestination(
+                    icon: Icon(Icons.calendar_month_outlined),
+                    selectedIcon: Icon(Icons.calendar_month),
+                    label: 'יומן',
+                  ),
+                  const NavigationDestination(
+                    icon: Icon(Icons.account_balance_wallet_outlined),
+                    selectedIcon: Icon(Icons.account_balance_wallet),
+                    label: 'כסף',
+                  ),
+                ],
+                onDestinationSelected: (i) {
+                  ref.read(appTabProvider.notifier).state = AppTab.values[i];
+                },
+              ),
             ),
           );
 
@@ -181,7 +211,8 @@ class _BrandMark extends StatelessWidget {
           height: 40,
           decoration: BoxDecoration(
             color: AppColors.primary,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(AppRadii.sm),
+            boxShadow: AppTheme.softShadow,
           ),
           child: const Icon(Icons.auto_awesome, color: Colors.white, size: 20),
         ),
@@ -189,7 +220,11 @@ class _BrandMark extends StatelessWidget {
           const SizedBox(width: 10),
           const Text(
             'ניהול החיים',
-            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 15,
+              color: AppColors.ink,
+            ),
           ),
         ],
       ],

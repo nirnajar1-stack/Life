@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../layout/app_layout.dart';
 import '../theme/app_theme.dart';
 
+/// Soft search field — no hard outline; elevated SoftCard shell.
 class AppSearchField extends StatefulWidget {
   const AppSearchField({
     super.key,
@@ -40,7 +42,7 @@ class _AppSearchFieldState extends State<AppSearchField> {
   @override
   Widget build(BuildContext context) {
     return SoftCard(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
       child: TextField(
         controller: _controller,
         onChanged: (value) {
@@ -50,7 +52,7 @@ class _AppSearchFieldState extends State<AppSearchField> {
         textInputAction: TextInputAction.search,
         decoration: InputDecoration(
           hintText: widget.hint,
-          prefixIcon: const Icon(Icons.search, size: 20),
+          prefixIcon: const Icon(Icons.search, size: 20, color: AppColors.muted),
           suffixIcon: _controller.text.isEmpty
               ? null
               : IconButton(
@@ -60,7 +62,7 @@ class _AppSearchFieldState extends State<AppSearchField> {
                     widget.onChanged('');
                     setState(() {});
                   },
-                  icon: const Icon(Icons.close, size: 18),
+                  icon: const Icon(Icons.close, size: 18, color: AppColors.muted),
                 ),
           isDense: true,
           filled: true,
@@ -68,8 +70,10 @@ class _AppSearchFieldState extends State<AppSearchField> {
           border: InputBorder.none,
           enabledBorder: InputBorder.none,
           focusedBorder: InputBorder.none,
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.sm + AppSpacing.xs,
+            vertical: 14,
+          ),
         ),
       ),
     );

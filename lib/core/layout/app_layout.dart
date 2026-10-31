@@ -1,15 +1,46 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_theme.dart';
 import 'breakpoints.dart';
+
+/// Soft UI × LawPro spacing + page layout tokens (see design-system/life-app/MASTER.md).
+class AppSpacing {
+  const AppSpacing._();
+
+  static const double xs = 4;
+  static const double sm = 8;
+  static const double md = 16;
+  static const double lg = 24;
+  static const double xl = 32;
+}
 
 class AppLayout {
   const AppLayout._();
 
-  static const double cardRadius = 16;
-  static const double chipRadius = 20;
-  static const double pageGutter = 20;
-  static const EdgeInsets listPadding = EdgeInsets.fromLTRB(20, 12, 20, 96);
-  static const EdgeInsets pagePadding = EdgeInsets.fromLTRB(20, 8, 20, 32);
+  /// Cards use [AppRadii.lg] (20) — Soft UI Evolution.
+  static const double cardRadius = AppRadii.lg;
+  static const double chipRadius = AppRadii.pill;
+  static const double pageGutter = AppSpacing.md;
+
+  static const EdgeInsets listPadding = EdgeInsets.fromLTRB(
+    AppSpacing.md,
+    AppSpacing.sm + AppSpacing.xs,
+    AppSpacing.md,
+    96,
+  );
+
+  static const EdgeInsets pagePadding = EdgeInsets.fromLTRB(
+    AppSpacing.md,
+    AppSpacing.sm,
+    AppSpacing.md,
+    AppSpacing.xl,
+  );
+
+  /// Vertical gap between major dashboard sections.
+  static const double sectionGap = AppSpacing.md;
+
+  /// Vertical gap inside a soft card / list block.
+  static const double blockGap = AppSpacing.sm;
 
   static bool isDesktop(BuildContext context) =>
       MediaQuery.sizeOf(context).width >= kDesktopBreakpoint;

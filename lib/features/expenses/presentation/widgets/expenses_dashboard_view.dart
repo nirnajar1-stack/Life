@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 
+import '../../../../core/layout/app_layout.dart';
+import '../../../../core/widgets/app_filter_chips.dart';
 import '../../data/models/expense_model.dart';
 import '../../domain/models/expense_category_taxonomy.dart';
 import '../../domain/models/expense_dashboard.dart';
@@ -47,7 +49,7 @@ class ExpensesDashboardView extends ConsumerWidget {
 
     if (dashboard.totalItems == 0) {
       return ListView(
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 96),
+        padding: AppLayout.listPadding,
         children: [
           _PeriodFilter(
             selected: period,
@@ -63,7 +65,7 @@ class ExpensesDashboardView extends ConsumerWidget {
     }
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 96),
+      padding: AppLayout.listPadding,
       children: [
         _PeriodFilter(
           selected: period,
@@ -191,14 +193,11 @@ class _PeriodFilter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
+    return AppFilterChipBar(
       children: [
         for (final period in ExpensePeriod.values)
-          ChoiceChip(
-            showCheckmark: false,
-            label: Text(period.label),
+          SoftFilterChip(
+            label: period.label,
             selected: selected == period,
             onSelected: (_) => onChanged(period),
           ),

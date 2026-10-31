@@ -87,13 +87,11 @@ class CalendarScreen extends ConsumerWidget {
             error: (error, _) => ListView(
               padding: AppLayout.pagePadding,
               children: [
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Text(
-                      'לא ניתן לטעון אירועים: $error',
-                      style: const TextStyle(color: AppColors.danger),
-                    ),
+                SoftCard(
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  child: Text(
+                    'לא ניתן לטעון אירועים: $error',
+                    style: const TextStyle(color: AppColors.danger),
                   ),
                 ),
               ],

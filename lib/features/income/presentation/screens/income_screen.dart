@@ -213,33 +213,31 @@ class _MonthSummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
+    return SoftCard(
       color: AppColors.income.withValues(alpha: 0.06),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'סה״כ הכנסות החודש',
-              style: TextStyle(color: AppColors.muted, fontSize: 13),
-            ),
-            const SizedBox(height: 4),
-            loading
-                ? const SizedBox(
-                    height: 28,
-                    width: 28,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : Text(
-                    _currency.format(total),
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.income,
-                        ),
-                  ),
-          ],
-        ),
+      padding: const EdgeInsets.all(AppSpacing.md),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'סה״כ הכנסות החודש',
+            style: TextStyle(color: AppColors.muted, fontSize: 13),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          loading
+              ? const SizedBox(
+                  height: 28,
+                  width: 28,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : Text(
+                  _currency.format(total),
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.income,
+                      ),
+                ),
+        ],
       ),
     );
   }
@@ -274,8 +272,8 @@ class _MonthSection extends StatelessWidget {
           ),
         ),
         for (final income in section.items)
-          Card(
-            margin: const EdgeInsets.only(bottom: 6),
+          SoftCard(
+            margin: const EdgeInsets.only(bottom: AppSpacing.sm),
             child: ListTile(
               onTap: () => onEdit(income),
               leading: CircleAvatar(
@@ -296,7 +294,7 @@ class _MonthSection extends StatelessWidget {
                   income.incomeType.label,
                   _shortDate.format(income.createdAt),
                 ].join(' · '),
-                style: const TextStyle(fontSize: 12),
+                style: const TextStyle(fontSize: 12, color: AppColors.muted),
               ),
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -304,7 +302,7 @@ class _MonthSection extends StatelessWidget {
                   Text(
                     _currency.format(income.amount),
                     style: const TextStyle(
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w700,
                       color: AppColors.income,
                     ),
                   ),

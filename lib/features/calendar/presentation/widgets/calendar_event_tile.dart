@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 
+import '../../../../core/layout/app_layout.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../data/models/calendar_event_model.dart';
 
@@ -37,20 +38,21 @@ class CalendarEventTile extends StatelessWidget {
     final time =
         '${_timeFormat.format(event.startsAt)}–${_timeFormat.format(event.endsAt)}';
 
-    return Card(
+    return SoftCard(
+      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
       child: ListTile(
         contentPadding: EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: compact ? 4 : 8,
+          horizontal: AppSpacing.md,
+          vertical: compact ? AppSpacing.xs : AppSpacing.sm,
         ),
         leading: Container(
           width: 44,
           height: 44,
           decoration: BoxDecoration(
-            color: AppColors.primary.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(12),
+            color: AppColors.calendar.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(AppRadii.sm),
           ),
-          child: const Icon(Icons.event, color: AppColors.primary),
+          child: const Icon(Icons.event_outlined, color: AppColors.calendar),
         ),
         title: Text(
           event.title,

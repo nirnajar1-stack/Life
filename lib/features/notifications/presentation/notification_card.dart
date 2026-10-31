@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/layout/app_layout.dart';
 import '../../../core/notifications/notifications.dart';
 import '../../../core/supabase/supabase_config.dart';
 import '../../../core/theme/app_theme.dart';
@@ -59,63 +60,66 @@ class _NotificationCardState extends ConsumerState<NotificationCard> {
     final enabled = permission == 'granted';
     final muted = Theme.of(context).colorScheme.onSurfaceVariant;
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
-        child: Row(
-          children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: (enabled ? AppColors.expenses : AppColors.primary)
-                    .withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(
-                enabled
-                    ? Icons.notifications_active_rounded
-                    : Icons.notifications_none_rounded,
-                color: enabled ? AppColors.expenses : AppColors.primary,
-                size: 22,
-              ),
+    return SoftCard(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.sm + AppSpacing.xs,
+        AppSpacing.sm,
+        AppSpacing.sm,
+        AppSpacing.sm,
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: (enabled ? AppColors.expenses : AppColors.primary)
+                  .withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(AppRadii.sm),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    enabled ? 'תזכורות בוקר פעילות' : 'תזכורות במכשיר',
-                    style: const TextStyle(fontWeight: FontWeight.w800),
-                  ),
-                  Text(
-                    enabled
-                        ? 'כל בוקר ב־8:00 אם יש משימות להיום או באיחור'
-                        : 'קבל תזכורת בוקר על משימות להיום',
-                    style: TextStyle(color: muted, fontSize: 12, height: 1.3),
-                  ),
-                ],
-              ),
+            child: Icon(
+              enabled
+                  ? Icons.notifications_active_rounded
+                  : Icons.notifications_none_rounded,
+              color: enabled ? AppColors.expenses : AppColors.primary,
+              size: 22,
             ),
-            if (_busy)
-              const Padding(
-                padding: EdgeInsets.all(12),
-                child: SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+          const SizedBox(width: AppSpacing.sm + AppSpacing.xs),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  enabled ? 'תזכורות בוקר פעילות' : 'תזכורות במכשיר',
+                  style: const TextStyle(fontWeight: FontWeight.w700),
                 ),
-              )
-            else if (enabled)
-              TextButton(onPressed: _test, child: const Text('בדיקה'))
-            else
-              FilledButton(
-                onPressed: _enable,
-                child: const Text('הפעל'),
-              ),
-          ],
-        ),
+                Text(
+                  enabled
+                      ? 'כל בוקר ב־8:00 אם יש משימות להיום או באיחור'
+                      : 'קבל תזכורת בוקר על משימות להיום',
+                  style: TextStyle(color: muted, fontSize: 12, height: 1.3),
+                ),
+              ],
+            ),
+          ),
+          if (enabled)
+            TextButton(
+              onPressed: _busy ? null : _test,
+              child: const Text('בדיקה'),
+            )
+          else
+            FilledButton(
+              onPressed: _busy ? null : _enable,
+              child: _busy
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('הפעל'),
+            ),
+        ],
       ),
     );
   }

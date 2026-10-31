@@ -110,9 +110,10 @@ Subtle only (dial 3/10): 150–250ms fades / short slides. Honor `prefers-reduce
 ---
 
 ## Pre-delivery checklist
-- [ ] Contrast ≥ 4.5:1 for body text on cream/navy
-- [ ] Focus / hover states visible on web
-- [ ] Chips wrap on narrow widths
-- [ ] Status pills have text labels
-- [ ] Soft shadows present; no harsh borders on cards
-- [ ] Hebrew Heebo rendering OK on Android + Web
+- [x] Contrast ≥ 4.5:1 for body text on cream/navy
+- [x] Focus / hover states visible on web
+- [x] Chips wrap on narrow widths (`AppFilterChipBar` / `SoftFilterChip`)
+- [x] Status pills have text labels
+- [x] Soft shadows present; no harsh borders on cards (`SoftCard`)
+- [x] Hebrew Heebo rendering OK on Android + Web
+- [x] Spacing tokens `AppSpacing` xs/sm/md/lg/xl wired through `AppLayout`

@@ -37,6 +37,7 @@ class AppRadii {
   static const double md = 16;
   static const double lg = 20;
   static const double xl = 24;
+  static const double pill = 999;
 }
 
 class AppTheme {
@@ -100,10 +101,10 @@ class AppTheme {
       ),
       cardTheme: CardThemeData(
         color: AppColors.card,
-        elevation: 2,
+        elevation: 0,
         margin: EdgeInsets.zero,
         clipBehavior: Clip.antiAlias,
-        shadowColor: AppColors.ink.withValues(alpha: 0.10),
+        shadowColor: AppColors.ink.withValues(alpha: 0.06),
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
           borderRadius: radius,
@@ -116,6 +117,7 @@ class AppTheme {
         secondarySelectedColor: AppColors.primary,
         backgroundColor: Colors.white,
         disabledColor: AppColors.surfaceAlt,
+        checkmarkColor: Colors.white,
         labelStyle: const TextStyle(
           fontWeight: FontWeight.w600,
           fontSize: 13,
@@ -129,7 +131,7 @@ class AppTheme {
         side: const BorderSide(color: AppColors.line),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(999),
+          borderRadius: BorderRadius.circular(AppRadii.pill),
         ),
       ),
       tabBarTheme: TabBarThemeData(
@@ -143,7 +145,7 @@ class AppTheme {
             const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
       ),
       navigationRailTheme: NavigationRailThemeData(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.card,
         indicatorColor: AppColors.primary.withValues(alpha: 0.10),
         selectedIconTheme: const IconThemeData(color: AppColors.primary),
         unselectedIconTheme: const IconThemeData(color: AppColors.muted),
@@ -157,9 +159,9 @@ class AppTheme {
         ),
       ),
       navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        shadowColor: Colors.transparent,
+        backgroundColor: AppColors.card,
+        elevation: 8,
+        shadowColor: AppColors.ink.withValues(alpha: 0.06),
         surfaceTintColor: Colors.transparent,
         indicatorColor: AppColors.primary.withValues(alpha: 0.10),
         height: 72,

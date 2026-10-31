@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../layout/app_layout.dart';
+import '../theme/app_theme.dart';
+
 class AppSectionHeader extends StatelessWidget {
   const AppSectionHeader({
     super.key,
@@ -15,14 +18,15 @@ class AppSectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
       child: Row(
         children: [
           Expanded(
             child: Text(
               title,
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.ink,
                   ),
             ),
           ),
@@ -30,10 +34,14 @@ class AppSectionHeader extends StatelessWidget {
             TextButton(
               onPressed: onAction,
               style: TextButton.styleFrom(
+                foregroundColor: AppColors.primary,
                 visualDensity: VisualDensity.compact,
-                padding: const EdgeInsets.symmetric(horizontal: 8),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
               ),
-              child: Text(actionLabel!),
+              child: Text(
+                actionLabel!,
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
             ),
         ],
       ),
