@@ -6,6 +6,7 @@ import '../../data/repositories/expense_repository.dart';
 import '../models/expense_calendar.dart';
 import '../models/expense_dashboard.dart';
 import '../models/expense_ledger.dart';
+import '../models/expense_ledger_filters.dart';
 import '../models/expense_period.dart';
 import '../models/expense_summary.dart';
 
@@ -33,8 +34,12 @@ final expensesRawProvider = FutureProvider<List<ExpenseModel>>((ref) async {
 final expensePeriodProvider =
     StateProvider<ExpensePeriod>((ref) => ExpensePeriod.thisMonth);
 
-/// Client-side search over the ledger (item name / category).
+/// Client-side search over the ledger (item name / category / amount / source).
 final expenseSearchQueryProvider = StateProvider<String>((ref) => '');
+
+/// Shared / nature chips for the ledger list.
+final expenseLedgerFiltersProvider =
+    StateProvider<ExpenseLedgerFilters>((ref) => const ExpenseLedgerFilters());
 
 /// Expenses filtered by the selected [expensePeriodProvider].
 ///
@@ -68,6 +73,20 @@ final expenseLedgerProvider =
     };
     return buildExpenseLedger(byId.values.toList());
   });
+});
+
+/// Ledger after search + shared/nature chips.
+final filteredExpenseLedgerProvider =
+    Provider<AsyncValue<List<ExpenseMonthSection>>>((ref) {
+  final query = ref.watch(expenseSearchQueryProvider);
+  final filters = ref.watch(expenseLedgerFiltersProvider);
+  return ref.watch(expenseLedgerProvider).whenData(
+        (months) => filterLedgerMonths(
+          months: months,
+          query: query,
+          filters: filters,
+        ),
+      );
 });
 
 /// Personal spend total for the current calendar month (home + cashflow banner).

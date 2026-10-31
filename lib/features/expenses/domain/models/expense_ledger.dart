@@ -76,10 +76,24 @@ class ExpenseTransaction {
     if (q.isEmpty) return true;
     if (title.toLowerCase().contains(q)) return true;
     if (primaryCategory.toLowerCase().contains(q)) return true;
+
+    final asAmount = double.tryParse(q.replaceAll(',', '.'));
+    if (asAmount != null) {
+      final matchesAmount = items.any((item) {
+        return (item.amount - asAmount).abs() < 0.009 ||
+            (item.actualAmount - asAmount).abs() < 0.009;
+      }) ||
+          (total - asAmount).abs() < 0.009 ||
+          (actualTotal - asAmount).abs() < 0.009;
+      if (matchesAmount) return true;
+    }
+
     return items.any((item) {
+      final source = (item.source ?? '').toLowerCase();
       return item.itemName.toLowerCase().contains(q) ||
           item.normalizedCategory.toLowerCase().contains(q) ||
           item.subCategory.toLowerCase().contains(q) ||
+          source.contains(q) ||
           (item.installmentLabel?.toLowerCase().contains(q) ?? false);
     });
   }

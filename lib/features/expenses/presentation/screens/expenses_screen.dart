@@ -10,6 +10,7 @@ import '../../../../core/widgets/app_filter_chips.dart';
 import '../../../../core/widgets/app_search_field.dart';
 import '../../data/models/expense_model.dart';
 import '../../domain/models/expense_ledger.dart';
+import '../../domain/models/expense_ledger_filters.dart';
 import '../../domain/models/expense_nature.dart';
 import '../../domain/models/expense_period.dart';
 import '../../domain/providers/expense_providers.dart';
@@ -328,7 +329,7 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
   @override
   Widget build(BuildContext context) {
     final dashboardAsync = ref.watch(expenseDashboardProvider);
-    final ledgerAsync = ref.watch(expenseLedgerProvider);
+    final ledgerAsync = ref.watch(filteredExpenseLedgerProvider);
 
     return Directionality(
       textDirection: TextDirection.rtl,
@@ -384,25 +385,14 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
                       data: (months) {
                         final period = ref.watch(expensePeriodProvider);
                         final query = ref.watch(expenseSearchQueryProvider);
-                        final visible = query.trim().isEmpty
-                            ? months
-                            : months
-                                .map(
-                                  (month) => ExpenseMonthSection(
-                                    year: month.year,
-                                    month: month.month,
-                                    transactions: month.transactions
-                                        .where((tx) => tx.matchesQuery(query))
-                                        .toList(),
-                                  ),
-                                )
-                                .where((month) => month.transactions.isNotEmpty)
-                                .toList();
+                        final filters = ref.watch(expenseLedgerFiltersProvider);
+                        final hasActiveFilters =
+                            query.trim().isNotEmpty || filters.isActive;
                         return ListView(
                           padding: AppLayout.listPadding,
                           children: [
                             AppSearchField(
-                              hint: 'חיפוש בקנייה, פריט או קטגוריה…',
+                              hint: 'חיפוש בשם, קטגוריה, מקור או סכום…',
                               onChanged: (value) => ref
                                   .read(expenseSearchQueryProvider.notifier)
                                   .state = value,
@@ -420,17 +410,84 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
                                   ),
                               ],
                             ),
+                            const SizedBox(height: AppSpacing.sm),
+                            Text(
+                              'בעלות',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .labelMedium
+                                  ?.copyWith(
+                                    color: AppColors.muted,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                            ),
+                            const SizedBox(height: AppSpacing.xs),
+                            AppFilterChipBar(
+                              children: [
+                                for (final f in ExpenseSharedFilter.values)
+                                  SoftFilterChip(
+                                    label: f.label,
+                                    selected: filters.shared == f,
+                                    onSelected: (_) => ref
+                                        .read(
+                                            expenseLedgerFiltersProvider.notifier)
+                                        .state = filters.copyWith(shared: f),
+                                  ),
+                              ],
+                            ),
+                            const SizedBox(height: AppSpacing.sm),
+                            Text(
+                              'סוג',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .labelMedium
+                                  ?.copyWith(
+                                    color: AppColors.muted,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                            ),
+                            const SizedBox(height: AppSpacing.xs),
+                            AppFilterChipBar(
+                              children: [
+                                for (final f in ExpenseNatureFilter.values)
+                                  SoftFilterChip(
+                                    label: f.label,
+                                    selected: filters.nature == f,
+                                    onSelected: (_) => ref
+                                        .read(
+                                            expenseLedgerFiltersProvider.notifier)
+                                        .state = filters.copyWith(nature: f),
+                                  ),
+                              ],
+                            ),
+                            if (filters.isActive) ...[
+                              const SizedBox(height: AppSpacing.sm),
+                              Align(
+                                alignment: Alignment.centerLeft,
+                                child: TextButton.icon(
+                                  onPressed: () {
+                                    ref
+                                        .read(expenseLedgerFiltersProvider
+                                            .notifier)
+                                        .state = const ExpenseLedgerFilters();
+                                  },
+                                  icon: const Icon(Icons.filter_alt_off, size: 18),
+                                  label: const Text('נקה פילטרים'),
+                                ),
+                              ),
+                            ],
                             const SizedBox(height: AppSpacing.sm + AppSpacing.xs),
-                            if (visible.isEmpty && query.trim().isNotEmpty)
+                            if (months.isEmpty && hasActiveFilters)
                               const AppEmptyState(
                                 icon: Icons.search_off,
                                 title: 'אין תוצאות',
-                                message: 'נסה מילה אחרת או נקה את החיפוש.',
+                                message:
+                                    'נסה מילה אחרת, נקה חיפוש, או שנה פילטר בעלות/סוג.',
                                 compact: true,
                               )
                             else
                               _MonthlyLedger(
-                                months: visible,
+                                months: months,
                                 onEdit: (e, {int messageGroupSize = 1}) =>
                                     _openForm(context, ref,
                                         existing: e,
