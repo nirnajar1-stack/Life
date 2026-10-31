@@ -52,53 +52,103 @@ class RecurringIncomeRepository {
     await _client.from(_templates).delete().eq('id', id);
   }
 
-  Future<void> recordMonthlyIncome({
+  /// Records (or updates) net salary for the calendar month of [receivedAt].
+  ///
+  /// Manual only — never auto-runs. Same template + month → upsert amount/date.
+  Future<IncomeModel> upsertMonthlyIncome({
     required RecurringIncomeModel template,
     required double netAmount,
-    DateTime? month,
+    required DateTime receivedAt,
   }) async {
     if (netAmount <= 0) {
       throw ArgumentError('netAmount must be > 0');
     }
 
-    final targetMonth = incomeMonthStart(month ?? DateTime.now());
-    if (await _incomeExistsForTemplate(template, targetMonth)) {
-      throw StateError('כבר נרשמה הכנסה לחודש זה');
-    }
-
-    final day = template.dayOfMonth.clamp(1, 28);
-    final incomeDate = DateTime(targetMonth.year, targetMonth.month, day);
-    final income = IncomeModel(
-      id: 0,
-      createdAt: incomeDate,
-      title: template.title,
-      amount: netAmount,
-      category: template.category,
-      subCategory: template.subCategory,
-      incomeType: IncomeType.salary,
-      source: 'life_app_recurring',
-      recurringIncomeId: template.id,
-      insertedAt: DateTime.now(),
+    final targetMonth = incomeMonthStart(receivedAt);
+    final incomeDate = DateTime(
+      receivedAt.year,
+      receivedAt.month,
+      receivedAt.day,
     );
 
-    await _client.from(_ledger).insert(income.toJsonForInsert());
+    final existingId = await _findIncomeIdForTemplate(template, targetMonth);
+    if (existingId != null) {
+      await _client.from(_ledger).update({
+        'created_at': incomeDate.toIso8601String(),
+        'title': template.title,
+        'amount': netAmount,
+        'category': template.category,
+        'sub_category': template.subCategory,
+        'income_type': IncomeType.salary.dbValue,
+        'source': 'life_app_recurring',
+        'recurring_income_id': template.id,
+      }).eq('id', existingId);
+    } else {
+      final income = IncomeModel(
+        id: 0,
+        createdAt: incomeDate,
+        title: template.title,
+        amount: netAmount,
+        category: template.category,
+        subCategory: template.subCategory,
+        incomeType: IncomeType.salary,
+        source: 'life_app_recurring',
+        recurringIncomeId: template.id,
+        insertedAt: DateTime.now(),
+      );
+      await _client.from(_ledger).insert(income.toJsonForInsert());
+    }
+
     await _client.from(_templates).update({
       'amount': netAmount,
       'last_recorded_month':
           '${targetMonth.year.toString().padLeft(4, '0')}-'
           '${targetMonth.month.toString().padLeft(2, '0')}-01',
     }).eq('id', template.id);
+
+    final rows = await _client
+        .from(_ledger)
+        .select()
+        .eq('recurring_income_id', template.id)
+        .gte('created_at', targetMonth.toIso8601String())
+        .lt('created_at', incomeNextMonth(targetMonth).toIso8601String())
+        .limit(1);
+    final row = (rows as List).first;
+    return IncomeModel.fromJson(Map<String, dynamic>.from(row as Map));
   }
 
-  Future<bool> _incomeExistsForTemplate(
+  /// Kept for older call sites — delegates to [upsertMonthlyIncome].
+  Future<void> recordMonthlyIncome({
+    required RecurringIncomeModel template,
+    required double netAmount,
+    DateTime? month,
+    DateTime? receivedAt,
+  }) async {
+    final date = receivedAt ??
+        (month == null
+            ? DateTime.now()
+            : DateTime(
+                month.year,
+                month.month,
+                template.dayOfMonth.clamp(1, 28),
+              ));
+    await upsertMonthlyIncome(
+      template: template,
+      netAmount: netAmount,
+      receivedAt: date,
+    );
+  }
+
+  Future<int?> _findIncomeIdForTemplate(
     RecurringIncomeModel template,
     DateTime month,
   ) async {
-    if (await _incomeExistsByRecurringId(template.id, month)) return true;
-    return _incomeExistsBySimilarTitle(template.title, month);
+    final byId = await _incomeIdByRecurringId(template.id, month);
+    if (byId != null) return byId;
+    return _incomeIdBySimilarTitle(template.title, month);
   }
 
-  Future<bool> _incomeExistsByRecurringId(String templateId, DateTime month) async {
+  Future<int?> _incomeIdByRecurringId(String templateId, DateTime month) async {
     final start = incomeMonthStart(month);
     final end = incomeNextMonth(start);
     final rows = await _client
@@ -108,26 +158,31 @@ class RecurringIncomeRepository {
         .gte('created_at', start.toIso8601String())
         .lt('created_at', end.toIso8601String())
         .limit(1);
-    return (rows as List).isNotEmpty;
+    final list = rows as List;
+    if (list.isEmpty) return null;
+    return (list.first as Map)['id'] as int;
   }
 
-  Future<bool> _incomeExistsBySimilarTitle(String title, DateTime month) async {
+  Future<int?> _incomeIdBySimilarTitle(String title, DateTime month) async {
     final normalized = _normalizeTitle(title);
-    if (normalized.isEmpty) return false;
+    if (normalized.isEmpty) return null;
 
     final start = incomeMonthStart(month);
     final end = incomeNextMonth(start);
     final rows = await _client
         .from(_ledger)
-        .select('title')
+        .select('id, title')
         .gte('created_at', start.toIso8601String())
         .lt('created_at', end.toIso8601String());
 
     for (final row in rows as List) {
-      final name = _normalizeTitle((row as Map)['title'] as String?);
-      if (_titlesMatch(normalized, name)) return true;
+      final map = Map<String, dynamic>.from(row as Map);
+      final name = _normalizeTitle(map['title'] as String?);
+      if (_titlesMatch(normalized, name)) {
+        return (map['id'] as num).toInt();
+      }
     }
-    return false;
+    return null;
   }
 
   Future<Set<String>> _recordedTitlesThisMonth() async {

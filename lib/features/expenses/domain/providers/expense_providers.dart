@@ -36,6 +36,8 @@ final expensePeriodProvider =
 final expenseSearchQueryProvider = StateProvider<String>((ref) => '');
 
 /// Expenses filtered by the selected [expensePeriodProvider].
+///
+/// Excludes future months so analytics / period totals stay accurate.
 final filteredExpensesProvider = Provider<AsyncValue<List<ExpenseModel>>>((ref) {
   final period = ref.watch(expensePeriodProvider);
   return ref.watch(expensesRawProvider).whenData(
@@ -43,10 +45,21 @@ final filteredExpensesProvider = Provider<AsyncValue<List<ExpenseModel>>>((ref) 
       );
 });
 
-/// Monthly ledger: transactions grouped by message_id, newest months first.
+/// Ledger rows: selected period + future months (collapsed in the UI).
 final expenseLedgerProvider =
     Provider<AsyncValue<List<ExpenseMonthSection>>>((ref) {
-  return ref.watch(filteredExpensesProvider).whenData(buildExpenseLedger);
+  final period = ref.watch(expensePeriodProvider);
+  return ref.watch(expensesRawProvider).whenData((all) {
+    final inPeriod = filterExpensesByPeriod(all, period);
+    final now = DateTime.now();
+    final nextMonth = DateTime(now.year, now.month + 1);
+    final future = all.where((e) => !e.createdAt.isBefore(nextMonth)).toList();
+    final byId = <int, ExpenseModel>{
+      for (final e in inPeriod) e.id: e,
+      for (final e in future) e.id: e,
+    };
+    return buildExpenseLedger(byId.values.toList());
+  });
 });
 
 /// Personal spend total for the current calendar month (home + cashflow banner).
@@ -63,9 +76,18 @@ final monthExpenseTotalProvider = Provider<AsyncValue<double>>((ref) {
 });
 
 /// Analytics dashboard slices for the selected period.
+///
+/// Period filter drives category / period totals. Calendar MoM + monthly trend
+/// always use the full ledger (excluding future months) so "חודש קודם" and the
+/// trend stay correct even when the chip is "החודש".
 final expenseDashboardProvider = Provider<AsyncValue<ExpenseDashboard>>((ref) {
   final period = ref.watch(expensePeriodProvider);
-  return ref.watch(filteredExpensesProvider).whenData(
-        (expenses) => buildExpenseDashboard(expenses, period: period),
-      );
+  return ref.watch(expensesRawProvider).whenData((all) {
+    final filtered = filterExpensesByPeriod(all, period);
+    return buildExpenseDashboard(
+      filtered,
+      period: period,
+      calendarExpenses: all,
+    );
+  });
 });

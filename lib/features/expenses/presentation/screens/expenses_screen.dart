@@ -548,7 +548,7 @@ class _ExpensesFabState extends State<_ExpensesFab> {
   }
 }
 
-class _MonthlyLedger extends StatelessWidget {
+class _MonthlyLedger extends StatefulWidget {
   const _MonthlyLedger({
     required this.months,
     required this.onEdit,
@@ -568,35 +568,92 @@ class _MonthlyLedger extends StatelessWidget {
   final VoidCallback onAdd;
 
   @override
+  State<_MonthlyLedger> createState() => _MonthlyLedgerState();
+}
+
+class _MonthlyLedgerState extends State<_MonthlyLedger> {
+  bool _showFutureMonths = false;
+
+  bool _isFutureMonth(ExpenseMonthSection section, DateTime currentMonth) {
+    return section.monthStart.isAfter(currentMonth);
+  }
+
+  Widget _buildMonthBlock(ExpenseMonthSection month) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _MonthHeader(section: month),
+        const SizedBox(height: 8),
+        for (final tx in month.transactions)
+          _TransactionTile(
+            transaction: tx,
+            onEdit: widget.onEdit,
+            onDelete: widget.onDelete,
+            onToggleShared: () => widget.onToggleShared(tx),
+            onEditShared: () => widget.onEditShared(tx),
+            onDeleteTransaction: () => widget.onDeleteTransaction(tx),
+          ),
+        const SizedBox(height: 20),
+      ],
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
-    if (months.isEmpty) {
+    if (widget.months.isEmpty) {
       return AppEmptyState(
         icon: Icons.receipt_long_outlined,
         title: 'אין הוצאות להצגה',
         message: 'הוסף הוצאה או שנה את טווח התקופה.',
         actionLabel: 'הוצאה חדשה',
-        onAction: onAdd,
+        onAction: widget.onAdd,
         compact: true,
       );
     }
 
+    final now = DateTime.now();
+    final currentMonth = DateTime(now.year, now.month);
+    final futureMonths = <ExpenseMonthSection>[];
+    final currentAndPast = <ExpenseMonthSection>[];
+    for (final month in widget.months) {
+      if (_isFutureMonth(month, currentMonth)) {
+        futureMonths.add(month);
+      } else {
+        currentAndPast.add(month);
+      }
+    }
+
+    final futureTotal =
+        futureMonths.fold<double>(0, (sum, month) => sum + month.total);
+    final futureTxCount = futureMonths.fold<int>(
+      0,
+      (sum, month) => sum + month.transactionCount,
+    );
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        for (final month in months) ...[
-          _MonthHeader(section: month),
-          const SizedBox(height: 8),
-          for (final tx in month.transactions)
-            _TransactionTile(
-              transaction: tx,
-              onEdit: onEdit,
-              onDelete: onDelete,
-              onToggleShared: () => onToggleShared(tx),
-              onEditShared: () => onEditShared(tx),
-              onDeleteTransaction: () => onDeleteTransaction(tx),
+        if (futureMonths.isNotEmpty) ...[
+          OutlinedButton.icon(
+            onPressed: () =>
+                setState(() => _showFutureMonths = !_showFutureMonths),
+            icon: Icon(
+              _showFutureMonths ? Icons.expand_less : Icons.expand_more,
             ),
-          const SizedBox(height: 20),
+            label: Text(
+              _showFutureMonths
+                  ? 'הסתר חודשים עתידיים'
+                  : 'חודשים עתידיים · ${futureMonths.length} · '
+                      '${_currency.format(futureTotal)} · $futureTxCount תנועות',
+            ),
+          ),
+          const SizedBox(height: 12),
+          if (_showFutureMonths) ...[
+            for (final month in futureMonths) _buildMonthBlock(month),
+            const Divider(height: 28),
+          ],
         ],
+        for (final month in currentAndPast) _buildMonthBlock(month),
       ],
     );
   }

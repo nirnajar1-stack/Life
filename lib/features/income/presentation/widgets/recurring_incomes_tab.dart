@@ -95,65 +95,113 @@ class RecurringIncomesTab extends ConsumerWidget {
     WidgetRef ref,
     RecurringIncomeModel template,
   ) async {
-    final controller = TextEditingController(
+    final amountController = TextEditingController(
       text: template.amount != null && template.amount! > 0
           ? (template.amount == template.amount!.roundToDouble()
               ? template.amount!.toInt().toString()
               : template.amount.toString())
           : '',
     );
+    var receivedAt = DateTime.now();
 
-    final amount = await showDialog<double>(
+    final result = await showDialog<({double amount, DateTime date})>(
       context: context,
-      builder: (ctx) => Directionality(
-        textDirection: TextDirection.rtl,
-        child: AlertDialog(
-          title: Text('${template.title} — ${_monthLabel(DateTime.now())}'),
-          content: TextField(
-            controller: controller,
-            autofocus: true,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            inputFormatters: [
-              FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
-            ],
-            decoration: const InputDecoration(
-              labelText: 'נטו שקיבלת',
-              suffixText: '₪',
-              border: OutlineInputBorder(),
-            ),
+      builder: (ctx) {
+        return Directionality(
+          textDirection: TextDirection.rtl,
+          child: StatefulBuilder(
+            builder: (ctx, setLocal) {
+              return AlertDialog(
+                title: Text(template.title),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Text(
+                      'הזן כמה נטו קיבלת ומתי — הסכום ייחשב לחודש של התאריך.',
+                      style: TextStyle(color: AppColors.muted, fontSize: 13),
+                    ),
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: amountController,
+                      autofocus: true,
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: true),
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
+                      ],
+                      decoration: const InputDecoration(
+                        labelText: 'סכום נטו שקיבלת',
+                        suffixText: '₪',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    OutlinedButton.icon(
+                      onPressed: () async {
+                        final picked = await showDatePicker(
+                          context: ctx,
+                          initialDate: receivedAt,
+                          firstDate: DateTime(2020),
+                          lastDate: DateTime(2100),
+                          helpText: 'תאריך קבלת המשכורת',
+                        );
+                        if (picked != null) {
+                          setLocal(() => receivedAt = picked);
+                        }
+                      },
+                      icon: const Icon(Icons.event_outlined, size: 18),
+                      label: Text(
+                        'תאריך: ${DateFormat('dd/MM/yyyy').format(receivedAt)}'
+                        ' · ${_monthLabel(receivedAt)}',
+                      ),
+                    ),
+                  ],
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: const Text('ביטול'),
+                  ),
+                  FilledButton(
+                    onPressed: () {
+                      final parsed = double.tryParse(
+                        amountController.text.trim().replaceAll(',', '.'),
+                      );
+                      if (parsed == null || parsed <= 0) return;
+                      Navigator.pop(ctx, (amount: parsed, date: receivedAt));
+                    },
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.income,
+                    ),
+                    child: const Text('שמור לחודש'),
+                  ),
+                ],
+              );
+            },
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('ביטול'),
-            ),
-            FilledButton(
-              onPressed: () {
-                final parsed = double.tryParse(
-                  controller.text.trim().replaceAll(',', '.'),
-                );
-                if (parsed == null || parsed <= 0) return;
-                Navigator.pop(ctx, parsed);
-              },
-              style: FilledButton.styleFrom(backgroundColor: AppColors.income),
-              child: const Text('שמור'),
-            ),
-          ],
-        ),
-      ),
+        );
+      },
     );
-    controller.dispose();
-    if (amount == null) return;
+    amountController.dispose();
+    if (result == null) return;
 
     try {
-      await ref.read(recurringIncomeRepositoryProvider).recordMonthlyIncome(
+      await ref.read(recurringIncomeRepositoryProvider).upsertMonthlyIncome(
             template: template,
-            netAmount: amount,
+            netAmount: result.amount,
+            receivedAt: result.date,
           );
       await onRefresh?.call();
+      ref.invalidate(recurringIncomesProvider);
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${template.title}: ${_currency.format(amount)}')),
+        SnackBar(
+          content: Text(
+            '${template.title}: ${_currency.format(result.amount)} · '
+            '${_monthLabel(result.date)}',
+          ),
+        ),
       );
     } catch (error) {
       if (!context.mounted) return;
@@ -230,13 +278,14 @@ class RecurringIncomesTab extends ConsumerWidget {
                       ),
                       const SizedBox(height: 6),
                       const Text(
-                        'כל חודש הזן את הסכום הנטו שקיבלת — משכורת משתנה, בונוסים וכו׳.',
+                        'אין רישום אוטומטי. לכל משכורת הזן ידנית סכום + תאריך — '
+                        'זה ייחשב להכנסה של אותו חודש.',
                         style: TextStyle(color: AppColors.muted, fontSize: 12),
                       ),
                       if (pending > 0) ...[
                         const SizedBox(height: 8),
                         Text(
-                          '$pending ממתינות לרישום החודש',
+                          '$pending עדיין בלי רישום לחודש הנוכחי',
                           style: const TextStyle(
                             color: AppColors.warning,
                             fontSize: 12,
@@ -255,9 +304,7 @@ class RecurringIncomesTab extends ConsumerWidget {
                   onEdit: () => _openForm(context, ref, template: template),
                   onToggle: () => _toggleActive(context, ref, template),
                   onDelete: () => _delete(context, ref, template),
-                  onRecord: !template.recordedThisMonth
-                      ? () => _recordMonthlyNet(context, ref, template)
-                      : null,
+                  onRecord: () => _recordMonthlyNet(context, ref, template),
                 ),
                 const SizedBox(height: 8),
               ],
@@ -365,7 +412,9 @@ class _TemplateCard extends StatelessWidget {
                     backgroundColor: AppColors.income.withValues(alpha: 0.12),
                     foregroundColor: AppColors.income,
                   ),
-                  child: const Text('הזן נטו'),
+                  child: Text(
+                    template.recordedThisMonth ? 'עדכן / חודש אחר' : 'הזן נטו',
+                  ),
                 ),
               PopupMenuButton<String>(
                 onSelected: (value) {
