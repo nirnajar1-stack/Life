@@ -12,7 +12,9 @@ export default defineConfig({
     },
   },
   server: {
+    // Dual-stack listen so Chrome localhost (::1) works, not only 127.0.0.1
     host: true,
-    port: 5173,
+    port: 5180,
+    strictPort: true,
   },
 })
