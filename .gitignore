@@ -48,3 +48,10 @@ app.*.map.json
 /.flutter-sdk/
 /.pub-cache/
 __pycache__/
+supabase/.temp/
+
+# Manhelet portal local demo secrets (never commit)
+**/demo_credentials.local.dart
+**/demo_credentials.local.ts
+apps/manhelet-portal/.env.local
+**/demo_passwords.json

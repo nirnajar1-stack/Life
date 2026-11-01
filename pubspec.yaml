@@ -36,6 +36,7 @@ dependencies:
 
   flutter_localizations:
     sdk: flutter
+  go_router: ^17.2.3
 
 dev_dependencies:
   flutter_test:
@@ -44,6 +45,7 @@ dev_dependencies:
   # Code generation for Riverpod (Makes writing providers easier)
   riverpod_generator: ^2.4.0
   build_runner: ^2.4.9
+  supabase: ^2.16.5
 
 flutter:
   uses-material-design: true
