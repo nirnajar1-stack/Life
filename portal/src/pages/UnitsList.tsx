@@ -1,33 +1,33 @@
 import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Panel } from '@/components/ui/card'
-import { units } from '@/data/mock'
+import { visibleUnits } from '@/lib/access'
 import { formatRelativeHe } from '@/lib/utils'
 import { useApp } from '@/state/AppContext'
 
 export function UnitsList() {
   const { searchQuery, setSearchQuery, currentUser } = useApp()
+  const [params] = useSearchParams()
+  const intent = params.get('intent')
   const [region, setRegion] = useState('all')
   const [attentionOnly, setAttentionOnly] = useState(false)
 
+  // Assignment-based visibility — not cosmetic sort of the full catalog
+  const accessible = useMemo(
+    () => visibleUnits(currentUser),
+    [currentUser],
+  )
+
   const regions = useMemo(
-    () => Array.from(new Set(units.map((u) => u.region))),
-    [],
+    () => Array.from(new Set(accessible.map((u) => u.region))),
+    [accessible],
   )
 
   const filtered = useMemo(() => {
-    let list = [...units]
-    if (currentUser.role === 'matam') {
-      // Show all for discovery; matam's units sorted first
-      list.sort((a, b) => {
-        const aMine = a.matamId === currentUser.id ? 0 : 1
-        const bMine = b.matamId === currentUser.id ? 0 : 1
-        if (aMine !== bMine) return aMine - bMine
-        return Number(b.needsAttention) - Number(a.needsAttention)
-      })
-    }
+    let list = [...accessible]
+    list.sort((a, b) => Number(b.needsAttention) - Number(a.needsAttention))
     if (region !== 'all') list = list.filter((u) => u.region === region)
     if (attentionOnly) list = list.filter((u) => u.needsAttention)
     const q = searchQuery.trim()
@@ -40,15 +40,27 @@ export function UnitsList() {
       )
     }
     return list
-  }, [searchQuery, region, attentionOnly, currentUser])
+  }, [accessible, searchQuery, region, attentionOnly])
+
+  const intentHint =
+    intent === 'visit'
+      ? 'בחרו יחידה לתיעוד ביקור'
+      : intent === 'rehab'
+        ? 'בחרו יחידה לעדכון שיקום'
+        : null
 
   return (
     <div className="space-y-4">
       <div>
         <h1 className="text-[28px] font-bold">יחידות טיפול</h1>
         <p className="mt-1 text-[14px] text-slate-gray">
-          חיפוש וסינון · מעבר לתיק מלא
+          מוצגות רק יחידות לפי שיוך המשתמש · {accessible.length} זמינות
         </p>
+        {intentHint && (
+          <p className="mt-2 text-[14px] font-medium text-signal-blue">
+            {intentHint}
+          </p>
+        )}
       </div>
 
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -84,47 +96,55 @@ export function UnitsList() {
 
       <Panel className="!p-0 overflow-hidden">
         <ul className="divide-y divide-hairline">
-          {filtered.map((u) => (
-            <li key={u.id}>
-              <Link
-                to={`/units/${u.id}`}
-                className="flex flex-col gap-2 px-4 py-4 hover:bg-pebble/70 sm:flex-row sm:items-center sm:justify-between sm:px-6"
-              >
-                <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-[16px] font-semibold">
-                      משפחת {u.familyName}
-                    </span>
-                    <Badge tone="muted">{u.region}</Badge>
-                    {u.needsAttention && (
-                      <Badge tone="danger">דורשת התייחסות</Badge>
-                    )}
-                  </div>
-                  <p className="mt-1 text-[13px] text-slate-gray">{u.summary}</p>
-                  <p className="mt-1 text-[12px] text-mist-gray">
-                    פעילות אחרונה · {formatRelativeHe(u.lastActivityAt)}
-                  </p>
-                </div>
-                <div className="flex gap-4 text-[13px] sm:text-end">
+          {filtered.map((u) => {
+            const href =
+              intent === 'visit'
+                ? `/units/${u.id}?tab=visits&action=visit`
+                : intent === 'rehab'
+                  ? `/units/${u.id}?tab=rehab&action=rehab`
+                  : `/units/${u.id}`
+            return (
+              <li key={u.id}>
+                <Link
+                  to={href}
+                  className="flex flex-col gap-2 px-4 py-4 hover:bg-pebble/70 sm:flex-row sm:items-center sm:justify-between sm:px-6"
+                >
                   <div>
-                    <div className="font-semibold tabular-nums">{u.openTasks}</div>
-                    <div className="text-mist-gray">פתוחות</div>
-                  </div>
-                  <div>
-                    <div
-                      className={`font-semibold tabular-nums ${u.overdueTasks ? 'text-danger' : ''}`}
-                    >
-                      {u.overdueTasks}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-[16px] font-semibold">
+                        משפחת {u.familyName}
+                      </span>
+                      <Badge tone="muted">{u.region}</Badge>
+                      {u.needsAttention && (
+                        <Badge tone="danger">דורשת התייחסות</Badge>
+                      )}
                     </div>
-                    <div className="text-mist-gray">חורגות</div>
+                    <p className="mt-1 text-[13px] text-slate-gray">{u.summary}</p>
+                    <p className="mt-1 text-[12px] text-mist-gray">
+                      פעילות אחרונה · {formatRelativeHe(u.lastActivityAt)}
+                    </p>
                   </div>
-                </div>
-              </Link>
-            </li>
-          ))}
+                  <div className="flex gap-4 text-[13px] sm:text-end">
+                    <div>
+                      <div className="font-semibold tabular-nums">{u.openTasks}</div>
+                      <div className="text-mist-gray">פתוחות</div>
+                    </div>
+                    <div>
+                      <div
+                        className={`font-semibold tabular-nums ${u.overdueTasks ? 'text-danger' : ''}`}
+                      >
+                        {u.overdueTasks}
+                      </div>
+                      <div className="text-mist-gray">חורגות</div>
+                    </div>
+                  </div>
+                </Link>
+              </li>
+            )
+          })}
           {filtered.length === 0 && (
             <li className="px-4 py-10 text-center text-[14px] text-slate-gray">
-              לא נמצאו יחידות
+              לא נמצאו יחידות בשיוך שלך
             </li>
           )}
         </ul>

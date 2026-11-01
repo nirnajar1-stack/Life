@@ -13,8 +13,8 @@ import {
   getUser,
   priorityLabel,
   statusLabel,
-  units,
 } from '@/data/mock'
+import { matamCaseloadTasks, visibleTasks, visibleUnits } from '@/lib/access'
 import { cn, formatRelativeHe } from '@/lib/utils'
 import { useApp } from '@/state/AppContext'
 import type { Task, TaskStatus } from '@/types'
@@ -40,23 +40,37 @@ export function TaskCenter() {
     void refreshTasks()
   }, [refreshTasks])
 
+  const accessibleTasks = useMemo(() => {
+    if (currentUser.role === 'matam') {
+      return matamCaseloadTasks(currentUser, tasks)
+    }
+    return visibleTasks(currentUser, tasks)
+  }, [tasks, currentUser])
+
+  const accessibleUnits = useMemo(
+    () => visibleUnits(currentUser),
+    [currentUser],
+  )
+
   const domains = useMemo(
-    () => Array.from(new Set(tasks.map((t) => t.domain))),
-    [tasks],
+    () => Array.from(new Set(accessibleTasks.map((t) => t.domain))),
+    [accessibleTasks],
   )
 
   const filtered = useMemo(() => {
-    let list = [...tasks]
+    let list = [...accessibleTasks]
     if (view === 'mine') {
-      list = list.filter(
-        (t) =>
-          t.ownerId === currentUser.id ||
-          t.participantIds.includes(currentUser.id),
-      )
+      if (currentUser.role === 'matam') {
+        // already caseload-scoped
+      } else {
+        list = list.filter(
+          (t) =>
+            t.participantIds.includes(currentUser.id) ||
+            t.waitingOnIds.includes(currentUser.id),
+        )
+      }
     } else if (view === 'attention') {
-      list = list.filter(
-        (t) => t.status === 'needs_attention' || t.hasNewReply,
-      )
+      list = list.filter((t) => t.needsAttention || t.hasNewReply)
     } else if (view === 'waiting-mol') {
       list = list.filter((t) => t.status === 'waiting')
     }
@@ -76,7 +90,15 @@ export function TaskCenter() {
       (a, b) =>
         new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
     )
-  }, [tasks, view, status, unitId, domain, searchQuery, currentUser.id])
+  }, [
+    accessibleTasks,
+    view,
+    status,
+    unitId,
+    domain,
+    searchQuery,
+    currentUser,
+  ])
 
   const selected = filtered.find((t) => t.id === selectedId) ?? filtered[0]
 
@@ -90,14 +112,15 @@ export function TaskCenter() {
         <div>
           <h1 className="text-[28px] font-bold text-ink-navy">מרכז המשימות</h1>
           <p className="mt-1 text-[14px] text-slate-gray">
-            {filtered.length} משימות בתצוגה הנוכחית
+            {filtered.length} משימות בתצוגה הנוכחית (לפי הרשאות שיוך)
           </p>
         </div>
         <Button onClick={() => navigate('/tasks/new')}>משימה חדשה</Button>
       </div>
 
       <AssumptionBanner>
-        תצוגות שמורות הן אבטיפוס מקומי — שמירה אמיתית תלויה ב־API עתידי.
+        תצוגות שמורות הן אבטיפוס מקומי — שמירה אמיתית תלויה ב־API עתידי. סינון
+        «דורש טיפול» הוא אינדיקטור נפרד מסטטוס עסקי.
       </AssumptionBanner>
 
       <div className="flex flex-wrap gap-2">
@@ -167,7 +190,7 @@ export function TaskCenter() {
             onChange={setUnitId}
             options={[
               { value: 'all', label: 'כל המשפחות' },
-              ...units.map((u) => ({
+              ...accessibleUnits.map((u) => ({
                 value: u.id,
                 label: `משפחת ${u.familyName}`,
               })),
@@ -185,7 +208,6 @@ export function TaskCenter() {
         </div>
       </div>
 
-      {/* Desktop: list + side panel */}
       <div className="hidden gap-4 lg:grid lg:grid-cols-5">
         <div className="lg:col-span-3">
           <div
@@ -211,7 +233,6 @@ export function TaskCenter() {
         </Panel>
       </div>
 
-      {/* Mobile: full list */}
       <div className="lg:hidden">
         <TaskList tasks={filtered} />
       </div>
@@ -259,6 +280,7 @@ function TaskPreview({ task }: { task: Task }) {
       <div className="flex flex-wrap gap-2">
         <Badge tone="muted">{task.number}</Badge>
         <Badge>{statusLabel[task.status]}</Badge>
+        {task.needsAttention && <Badge tone="danger">דורש טיפול</Badge>}
         <Badge tone="warning">{priorityLabel[task.priority]}</Badge>
       </div>
       <h2 className="text-[20px] font-semibold leading-snug">{task.title}</h2>

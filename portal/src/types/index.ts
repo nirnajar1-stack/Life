@@ -1,10 +1,10 @@
 export type UserRole = 'matam' | 'molecule' | 'family'
 
+/** Business task statuses only — "דורש טיפול" is a separate indicator. */
 export type TaskStatus =
   | 'open'
   | 'in_progress'
   | 'waiting'
-  | 'needs_attention'
   | 'done'
   | 'closed'
 
@@ -19,6 +19,8 @@ export interface User {
   title: string
   org?: string
   avatarInitials: string
+  /** Treatment units this user is affiliated with (molecules / explicit assignments). */
+  affiliatedUnitIds?: string[]
 }
 
 export interface FamilyMember {
@@ -47,6 +49,8 @@ export interface Task {
   title: string
   description: string
   status: TaskStatus
+  /** Operational attention flag — not a business status. */
+  needsAttention: boolean
   priority: TaskPriority
   domain: string
   subDomain: string
@@ -83,6 +87,8 @@ export interface Visit {
 export interface RehabNote {
   id: string
   unitId: string
+  /** Required: rehab update is tied to a specific person in the unit. */
+  memberId: string
   date: string
   title: string
   note: string

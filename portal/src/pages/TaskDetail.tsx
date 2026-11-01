@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { ChevronDown, ChevronUp, Lock, Users } from 'lucide-react'
 import { AssumptionBanner } from '@/components/ui/assumption'
@@ -13,6 +13,14 @@ import {
   priorityLabel,
   statusLabel,
 } from '@/data/mock'
+import {
+  CLOSE_DOCUMENTATION_MIN_CHARS,
+  applyChatterViewFilter,
+  canCloseTask,
+  canPostInternalChatter,
+  canViewInternalChatter,
+  canViewTask,
+} from '@/lib/access'
 import { formatRelativeHe, cn } from '@/lib/utils'
 import { useApp } from '@/state/AppContext'
 import type { ChatterMessage, ChatterVisibility, Task, TaskStatus } from '@/types'
@@ -24,6 +32,8 @@ export function TaskDetail() {
     loadChatter,
     addChatter,
     changeStatus,
+    toggleNeedsAttention,
+    closeTask,
     currentUser,
     refreshTasks,
   } = useApp()
@@ -35,15 +45,55 @@ export function TaskDetail() {
   const [chatterFilter, setChatterFilter] = useState<'all' | ChatterVisibility>(
     'all',
   )
+  const [closeOpen, setCloseOpen] = useState(false)
+  const [closeDoc, setCloseDoc] = useState('')
+  const [closeError, setCloseError] = useState<string | null>(null)
+  const [forbidden, setForbidden] = useState(false)
 
   useEffect(() => {
     if (!taskId) return
     void (async () => {
       const t = await getTask(taskId)
-      setTask(t ?? null)
-      if (t) setMessages(await loadChatter(t.id))
+      if (!t || !canViewTask(currentUser, t)) {
+        setTask(null)
+        setForbidden(true)
+        setMessages([])
+        return
+      }
+      setForbidden(false)
+      setTask(t)
+      // Access-filtered load — molecule never gets internal, even for "הכול"
+      setMessages(await loadChatter(t.id))
     })()
-  }, [taskId, getTask, loadChatter])
+  }, [taskId, getTask, loadChatter, currentUser])
+
+  const canSeeInternal = canViewInternalChatter(currentUser)
+  const isMatam = currentUser.role === 'matam'
+
+  const viewTabs = useMemo(() => {
+    const tabs: { id: 'all' | ChatterVisibility; label: string }[] = [
+      { id: 'all', label: 'הכול' },
+      { id: 'shared', label: 'משותפת' },
+    ]
+    if (canSeeInternal) tabs.push({ id: 'internal', label: 'פנימית' })
+    return tabs
+  }, [canSeeInternal])
+
+  // View filter only — never expands beyond access-filtered messages
+  const visibleMessages = applyChatterViewFilter(messages, chatterFilter)
+
+  if (forbidden) {
+    return (
+      <Panel>
+        <p className="text-[14px] text-slate-gray">
+          אין הרשאה לצפות במשימה זו לפי שיוך יחידות הטיפול.
+        </p>
+        <Link to="/tasks" className="mt-3 inline-flex text-signal-blue hover:underline">
+          חזרה למרכז המשימות
+        </Link>
+      </Panel>
+    )
+  }
 
   if (!task) {
     return (
@@ -57,11 +107,6 @@ export function TaskDetail() {
   const creator = getUser(task.creatorId)
   const participants = task.participantIds.map(getUser).filter(Boolean)
   const waiting = task.waitingOnIds.map(getUser).filter(Boolean)
-  const isMatam = currentUser.role === 'matam'
-  const visibleMessages =
-    chatterFilter === 'all'
-      ? messages
-      : messages.filter((m) => m.visibility === chatterFilter)
 
   async function onReply() {
     if (!body.trim() || !task) return
@@ -80,6 +125,32 @@ export function TaskDetail() {
     setTask(t ?? null)
   }
 
+  async function onToggleAttention() {
+    if (!task) return
+    await toggleNeedsAttention(task.id, !task.needsAttention)
+    const t = await getTask(task.id)
+    setTask(t ?? null)
+  }
+
+  async function onConfirmClose() {
+    if (!task) return
+    if (closeDoc.trim().length < CLOSE_DOCUMENTATION_MIN_CHARS) {
+      setCloseError(
+        `נדרש תיעוד של לפחות ${CLOSE_DOCUMENTATION_MIN_CHARS} תווים`,
+      )
+      return
+    }
+    setCloseError(null)
+    const ok = await closeTask(task.id, closeDoc)
+    if (ok) {
+      setCloseOpen(false)
+      setCloseDoc('')
+      setMessages(await loadChatter(task.id))
+      const t = await getTask(task.id)
+      setTask(t ?? null)
+    }
+  }
+
   return (
     <div className="mx-auto max-w-4xl space-y-4">
       <div className="text-[13px] text-slate-gray">
@@ -95,15 +166,16 @@ export function TaskDetail() {
           <Badge tone="muted">{task.number}</Badge>
           <Badge
             tone={
-              task.status === 'needs_attention'
-                ? 'danger'
-                : task.status === 'waiting'
-                  ? 'warning'
+              task.status === 'waiting'
+                ? 'warning'
+                : task.status === 'done' || task.status === 'closed'
+                  ? 'success'
                   : 'info'
             }
           >
             {statusLabel[task.status]}
           </Badge>
+          {task.needsAttention && <Badge tone="danger">דורש טיפול</Badge>}
           <Badge tone="warning">{priorityLabel[task.priority]}</Badge>
           <Badge tone="muted">
             {task.domain} · {task.subDomain}
@@ -166,7 +238,6 @@ export function TaskDetail() {
         )}
       </Panel>
 
-      {/* Actions */}
       <Panel>
         <h2 className="mb-3 text-[18px] font-semibold">פעולות</h2>
         {isMatam ? (
@@ -177,11 +248,13 @@ export function TaskDetail() {
             <Button size="sm" variant="outline" onClick={() => onStatus('waiting')}>
               העבר להמתנה
             </Button>
-            <Button size="sm" variant="dark" onClick={() => onStatus('done')}>
-              סגור / השלם
-            </Button>
-            <Button size="sm" variant="ghost" onClick={() => onStatus('needs_attention')}>
-              סמן דורש טיפול
+            {canCloseTask(currentUser) && (
+              <Button size="sm" variant="dark" onClick={() => setCloseOpen(true)}>
+                סגור / השלם
+              </Button>
+            )}
+            <Button size="sm" variant="ghost" onClick={() => void onToggleAttention()}>
+              {task.needsAttention ? 'הסר דורש טיפול' : 'סמן דורש טיפול'}
             </Button>
           </div>
         ) : (
@@ -194,20 +267,55 @@ export function TaskDetail() {
             </AssumptionBanner>
           </div>
         )}
+
+        {closeOpen && (
+          <div className="mt-4 space-y-3 rounded-lg border border-hairline bg-cloud p-4">
+            <h3 className="text-[16px] font-semibold">סגירת משימה עם תיעוד</h3>
+            <p className="text-[13px] text-slate-gray">
+              נדרש תיעוד Chatter של לפחות {CLOSE_DOCUMENTATION_MIN_CHARS} תווים
+              לפני סגירה (כלל עסקי מיושר ל־Salesforce).
+            </p>
+            <Textarea
+              value={closeDoc}
+              onChange={(e) => {
+                setCloseDoc(e.target.value)
+                setCloseError(null)
+              }}
+              placeholder="תארו את סיכום הטיפול והסיבה לסגירה…"
+              aria-label="תיעוד סגירה"
+            />
+            <p className="text-[12px] text-mist-gray">
+              {closeDoc.trim().length}/{CLOSE_DOCUMENTATION_MIN_CHARS} תווים מינימום
+            </p>
+            {closeError && (
+              <p className="text-[13px] text-danger" role="alert">
+                {closeError}
+              </p>
+            )}
+            <div className="flex gap-2">
+              <Button size="sm" onClick={() => void onConfirmClose()}>
+                אישור סגירה
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setCloseOpen(false)
+                  setCloseError(null)
+                }}
+              >
+                ביטול
+              </Button>
+            </div>
+          </div>
+        )}
       </Panel>
 
-      {/* Chatter */}
       <Panel>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-[18px] font-semibold">התכתבות</h2>
           <div className="flex gap-1">
-            {(
-              [
-                { id: 'all', label: 'הכל' },
-                { id: 'shared', label: 'משותפת' },
-                { id: 'internal', label: 'פנימית' },
-              ] as const
-            ).map((f) => (
+            {viewTabs.map((f) => (
               <button
                 key={f.id}
                 type="button"
@@ -225,9 +333,17 @@ export function TaskDetail() {
           </div>
         </div>
 
-        <AssumptionBanner className="mb-4">
-          הפרדת Chatter (משותפת / פנימית) דורשת בדיקה מול Salesforce לפני ייצור.
-        </AssumptionBanner>
+        {!canSeeInternal && (
+          <AssumptionBanner className="mb-4">
+            מולקולה רואה רק הודעות משותפות. תצוגת «הכול» מסננת תצוגה בלבד ואינה
+            מעניקה גישה להודעות פנימיות.
+          </AssumptionBanner>
+        )}
+        {canSeeInternal && (
+          <AssumptionBanner className="mb-4">
+            הפרדת Chatter (משותפת / פנימית) דורשת בדיקה מול Salesforce לפני ייצור.
+          </AssumptionBanner>
+        )}
 
         <ul className="space-y-3">
           {visibleMessages.map((m) => {
@@ -279,7 +395,7 @@ export function TaskDetail() {
             >
               משותפת
             </button>
-            {isMatam && (
+            {canPostInternalChatter(currentUser) && (
               <button
                 type="button"
                 onClick={() => setVisibility('internal')}

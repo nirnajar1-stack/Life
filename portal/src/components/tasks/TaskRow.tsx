@@ -7,8 +7,6 @@ import type { Task } from '@/types'
 
 function statusTone(status: Task['status']) {
   switch (status) {
-    case 'needs_attention':
-      return 'danger' as const
     case 'waiting':
       return 'warning' as const
     case 'done':
@@ -56,6 +54,7 @@ export function TaskRow({
               {task.number}
             </span>
             <Badge tone={statusTone(task.status)}>{statusLabel[task.status]}</Badge>
+            {task.needsAttention && <Badge tone="danger">דורש טיפול</Badge>}
             <Badge tone={priorityTone(task.priority)}>
               {priorityLabel[task.priority]}
             </Badge>

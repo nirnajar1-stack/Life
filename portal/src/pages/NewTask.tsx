@@ -4,7 +4,7 @@ import { AssumptionBanner } from '@/components/ui/assumption'
 import { Button } from '@/components/ui/button'
 import { Input, Textarea } from '@/components/ui/input'
 import { Panel } from '@/components/ui/card'
-import { units } from '@/data/mock'
+import { visibleUnits } from '@/lib/access'
 import { useApp } from '@/state/AppContext'
 import type { TaskPriority } from '@/types'
 
@@ -21,11 +21,24 @@ const domains = [
 export function NewTask() {
   const [params] = useSearchParams()
   const presetUnit = params.get('unitId') ?? ''
+  const fromUnitCase = Boolean(presetUnit)
   const { currentUser, createNewTask } = useApp()
   const navigate = useNavigate()
 
+  const allowedUnits = useMemo(
+    () => visibleUnits(currentUser),
+    [currentUser],
+  )
+
+  // From a general screen: do NOT auto-select a family.
+  // From a treatment-unit case screen: auto-fill the unit affiliation.
+  const initialUnit =
+    fromUnitCase && allowedUnits.some((u) => u.id === presetUnit)
+      ? presetUnit
+      : ''
+
   const [title, setTitle] = useState('')
-  const [unitId, setUnitId] = useState(presetUnit || units[0]?.id || '')
+  const [unitId, setUnitId] = useState(initialUnit)
   const [memberId, setMemberId] = useState('')
   const [description, setDescription] = useState('')
   const [domain, setDomain] = useState(domains[0].domain)
@@ -35,13 +48,15 @@ export function NewTask() {
   const [errors, setErrors] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
 
-  const unit = useMemo(() => units.find((u) => u.id === unitId), [unitId])
+  const unit = useMemo(
+    () => allowedUnits.find((u) => u.id === unitId),
+    [unitId, allowedUnits],
+  )
   const subs = domains.find((d) => d.domain === domain)?.subs ?? []
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
     const next: string[] = []
-    // Conservative required fields — marked as needing Salesforce validation
     if (!title.trim()) next.push('כותרת')
     if (!unitId) next.push('יחידת טיפול')
     if (!description.trim()) next.push('תיאור')
@@ -73,7 +88,9 @@ export function NewTask() {
       <div>
         <h1 className="text-[28px] font-bold">פתיחת משימה</h1>
         <p className="mt-1 text-[14px] text-slate-gray">
-          טופס אחד — מתוך תיק או מכל מקום בפורטל.
+          {fromUnitCase
+            ? 'יחידת הטיפול מולאה אוטומטית מתוך התיק.'
+            : 'ממסך כללי — בחרו יחידת טיפול ידנית (אין בחירה אוטומטית).'}
         </p>
       </div>
 
@@ -100,8 +117,10 @@ export function NewTask() {
                 setUnitId(e.target.value)
                 setMemberId('')
               }}
+              disabled={fromUnitCase && Boolean(initialUnit)}
             >
-              {units.map((u) => (
+              <option value="">בחרו יחידת טיפול…</option>
+              {allowedUnits.map((u) => (
                 <option key={u.id} value={u.id}>
                   משפחת {u.familyName} · {u.region}
                 </option>
@@ -114,6 +133,7 @@ export function NewTask() {
               className="h-10 w-full rounded-md border border-hairline bg-pebble px-3 text-[14px]"
               value={memberId}
               onChange={(e) => setMemberId(e.target.value)}
+              disabled={!unit}
             >
               <option value="">ללא בחירה</option>
               {unit?.members.map((m) => (

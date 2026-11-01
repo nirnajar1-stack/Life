@@ -52,7 +52,9 @@ npm run preview
 
 ## Design system
 
-הטוקנים נלקחו מ־`DESIGN.md` (Calendly — navy ink on cool marble):
+מסמך העיצוב: [`DESIGN.md`](./DESIGN.md) (Calendly — navy ink on cool marble).
+
+יישום הטוקנים בפועל: `src/index.css` (`@theme`).
 
 - Ink Navy `#0b3558`, Signal Blue `#006bff`, Cloud `#f8f9fb`, Paper, Hairline
 - צללים כחולים־אפורים (לא שחור ניטרלי)

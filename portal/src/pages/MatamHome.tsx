@@ -13,7 +13,8 @@ import { AssumptionBanner } from '@/components/ui/assumption'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Panel } from '@/components/ui/card'
-import { orgNews, units } from '@/data/mock'
+import { orgNews } from '@/data/mock'
+import { matamCaseloadTasks, visibleUnits } from '@/lib/access'
 import { greetingHe, cn, formatRelativeHe } from '@/lib/utils'
 import { useApp } from '@/state/AppContext'
 import type { Task } from '@/types'
@@ -35,6 +36,10 @@ function isOverdue(task: Task) {
   return task.dueDate < new Date().toISOString().slice(0, 10)
 }
 
+function requiresAttention(task: Task) {
+  return task.needsAttention || task.hasNewReply || isOverdue(task)
+}
+
 export function MatamHome() {
   const { currentUser, tasks, refreshTasks, searchQuery } = useApp()
   const [tab, setTab] = useState<HomeTab>('attention')
@@ -46,15 +51,10 @@ export function MatamHome() {
     void refreshTasks()
   }, [refreshTasks])
 
+  // All tasks in units this matam is responsible for (not only assignee)
   const myTasks = useMemo(
-    () =>
-      tasks.filter(
-        (t) =>
-          t.ownerId === currentUser.id ||
-          t.participantIds.includes(currentUser.id) ||
-          t.creatorId === currentUser.id,
-      ),
-    [tasks, currentUser.id],
+    () => matamCaseloadTasks(currentUser, tasks),
+    [tasks, currentUser],
   )
 
   const openCount = myTasks.filter(
@@ -83,16 +83,11 @@ export function MatamHome() {
     } else {
       switch (tab) {
         case 'attention':
-          list = list.filter(
-            (t) => t.status === 'needs_attention' || t.hasNewReply || isOverdue(t),
-          )
+          list = list.filter(requiresAttention)
           break
         case 'open':
           list = list.filter(
-            (t) =>
-              t.status === 'open' ||
-              t.status === 'in_progress' ||
-              t.status === 'needs_attention',
+            (t) => t.status === 'open' || t.status === 'in_progress',
           )
           break
         case 'waiting':
@@ -113,9 +108,9 @@ export function MatamHome() {
     return list.slice(0, 8)
   }, [myTasks, tab, metric, searchQuery])
 
-  const myUnits = units
-    .filter((u) => u.matamId === currentUser.id)
-    .sort((a, b) => Number(b.needsAttention) - Number(a.needsAttention))
+  const myUnits = visibleUnits(currentUser).sort(
+    (a, b) => Number(b.needsAttention) - Number(a.needsAttention),
+  )
 
   const pinned = orgNews.find((o) => o.pinned)
   const updates = orgNews.filter((o) => o.kind === 'news').slice(0, 2)
@@ -123,7 +118,6 @@ export function MatamHome() {
 
   return (
     <div className="space-y-6">
-      {/* A: Greeting */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-[28px] font-bold leading-tight text-ink-navy md:text-[38px] md:leading-[1.21]">
@@ -138,11 +132,10 @@ export function MatamHome() {
       </div>
 
       <AssumptionBanner>
-        מדדים אישיים מחושבים מנתוני דמה לפי בעלות/השתתפות במשימה — לאימות מול
-        Salesforce.
+        מדדים לפי יחידות טיפול באחריות המת״ם — כל המשימות ביחידות אלו, גם אם
+        האחראי הניהולי הוא משתמש אחר.
       </AssumptionBanner>
 
-      {/* B: Clickable metrics */}
       <div className="grid grid-cols-3 gap-2 sm:gap-3">
         {(
           [
@@ -170,7 +163,6 @@ export function MatamHome() {
         ))}
       </div>
 
-      {/* C: Tasks — primary */}
       <Panel className="!p-0 overflow-hidden">
         <div className="flex flex-col gap-3 border-b border-hairline px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <h2 className="text-[20px] font-semibold text-ink-navy">המשימות שלי</h2>
@@ -228,7 +220,6 @@ export function MatamHome() {
       </Panel>
 
       <div className="grid gap-6 lg:grid-cols-5">
-        {/* D: Units */}
         <Panel className="lg:col-span-3 !p-0 overflow-hidden">
           <div className="flex items-center justify-between border-b border-hairline px-4 py-4 sm:px-6">
             <h2 className="text-[20px] font-semibold">יחידות טיפול</h2>
@@ -269,7 +260,6 @@ export function MatamHome() {
           </ul>
         </Panel>
 
-        {/* E: Quick actions */}
         <Panel className="lg:col-span-2">
           <h2 className="mb-4 text-[20px] font-semibold">פעולות מהירות</h2>
           <div className="grid grid-cols-2 gap-2">
@@ -283,12 +273,12 @@ export function MatamHome() {
                 {
                   label: 'תיעוד ביקור',
                   icon: Home,
-                  to: '/units/unit-cohen?tab=visits&action=visit',
+                  to: '/units?intent=visit',
                 },
                 {
                   label: 'עדכון שיקום',
                   icon: CalendarDays,
-                  to: '/units/unit-levi?tab=rehab&action=rehab',
+                  to: '/units?intent=rehab',
                 },
                 {
                   label: 'איתור משפחה',
@@ -319,7 +309,6 @@ export function MatamHome() {
         </Panel>
       </div>
 
-      {/* F: Secondary org content */}
       <Panel>
         <button
           type="button"

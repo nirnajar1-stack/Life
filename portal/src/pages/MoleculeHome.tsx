@@ -4,7 +4,7 @@ import { TaskList } from '@/components/tasks/TaskList'
 import { AssumptionBanner } from '@/components/ui/assumption'
 import { Badge } from '@/components/ui/badge'
 import { Panel } from '@/components/ui/card'
-import { units } from '@/data/mock'
+import { visibleTasks, visibleUnits } from '@/lib/access'
 import { cn, formatRelativeHe } from '@/lib/utils'
 import { useApp } from '@/state/AppContext'
 
@@ -18,7 +18,6 @@ export function MoleculeHome() {
     void refreshTasks()
   }, [refreshTasks])
 
-  // Demo convenience: if opened while still as matam, adopt molecule persona
   useEffect(() => {
     if (currentUser.role !== 'molecule') {
       setRole('molecule')
@@ -26,13 +25,8 @@ export function MoleculeHome() {
   }, [currentUser.role, setRole])
 
   const myTasks = useMemo(
-    () =>
-      tasks.filter(
-        (t) =>
-          t.participantIds.includes(currentUser.id) ||
-          t.waitingOnIds.includes(currentUser.id),
-      ),
-    [tasks, currentUser.id],
+    () => visibleTasks(currentUser, tasks),
+    [tasks, currentUser],
   )
 
   const waitingOnMe = myTasks.filter((t) =>
@@ -42,13 +36,13 @@ export function MoleculeHome() {
     (t) => t.status !== 'done' && t.status !== 'closed',
   )
 
-  const relatedUnits = useMemo(() => {
-    const ids = new Set(myTasks.map((t) => t.unitId))
-    return units.filter((u) => ids.has(u.id))
-  }, [myTasks])
+  const relatedUnits = useMemo(
+    () => visibleUnits(currentUser),
+    [currentUser],
+  )
 
   const blockers = myTasks.filter(
-    (t) => t.status === 'needs_attention' || t.status === 'waiting',
+    (t) => t.needsAttention || t.status === 'waiting',
   )
 
   return (
@@ -64,7 +58,8 @@ export function MoleculeHome() {
       </div>
 
       <AssumptionBanner>
-        מולקולה אינה משנה סטטוס ואינה סוגרת משימות — הרשאה מרכזית באפיון.
+        מולקולה אינה משנה סטטוס ואינה סוגרת משימות; אין גישה להודעות פנימיות גם
+        בתצוגת «הכול».
       </AssumptionBanner>
 
       <div
@@ -107,7 +102,7 @@ export function MoleculeHome() {
           <div className="border-b border-hairline px-4 py-4 sm:px-6">
             <h2 className="text-[20px] font-semibold">משימות לטיפול</h2>
             <p className="mt-1 text-[13px] text-slate-gray">
-              רכיבים משותפים עם מת״ם · ללא פעולות סטטוס
+              רכיבים משותפים עם מת״ם · ללא פעולות סטטוס · לפי שיוך יחידות
             </p>
           </div>
           <TaskList
@@ -139,6 +134,9 @@ export function MoleculeHome() {
                     <div className="flex flex-wrap gap-2">
                       <Badge tone="muted">{t.number}</Badge>
                       <Badge tone="warning">{t.domain}</Badge>
+                      {t.needsAttention && (
+                        <Badge tone="danger">דורש טיפול</Badge>
+                      )}
                     </div>
                     <div className="mt-1 font-semibold">{t.title}</div>
                     <div className="text-[12px] text-mist-gray">

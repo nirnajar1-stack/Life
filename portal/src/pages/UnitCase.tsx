@@ -6,8 +6,9 @@ import { Button } from '@/components/ui/button'
 import { Panel } from '@/components/ui/card'
 import { Input, Textarea } from '@/components/ui/input'
 import { TaskList } from '@/components/tasks/TaskList'
-import { fetchUnitExtras } from '@/api/stubs'
-import { getUnit } from '@/data/mock'
+import { addRehabNote, fetchUnitExtras } from '@/api/stubs'
+import { getMember, getUnit } from '@/data/mock'
+import { canViewUnit, visibleTasks } from '@/lib/access'
 import { formatRelativeHe, cn } from '@/lib/utils'
 import { useApp } from '@/state/AppContext'
 import type { DocumentItem, RehabNote, Visit } from '@/types'
@@ -29,7 +30,7 @@ export function UnitCase() {
   const tab = (params.get('tab') as Tab) || 'overview'
   const action = params.get('action')
   const unit = unitId ? getUnit(unitId) : undefined
-  const { tasks, refreshTasks, showToast } = useApp()
+  const { tasks, refreshTasks, showToast, currentUser } = useApp()
   const navigate = useNavigate()
 
   const [visits, setVisits] = useState<Visit[]>([])
@@ -38,24 +39,30 @@ export function UnitCase() {
   const [visitNote, setVisitNote] = useState('')
   const [rehabTitle, setRehabTitle] = useState('')
   const [rehabNote, setRehabNote] = useState('')
+  const [rehabMemberId, setRehabMemberId] = useState('')
+
+  const allowed = unitId ? canViewUnit(currentUser, unitId) : false
 
   useEffect(() => {
     void refreshTasks()
   }, [refreshTasks])
 
   useEffect(() => {
-    if (!unitId) return
+    if (!unitId || !allowed) return
     void fetchUnitExtras(unitId).then((x) => {
       setVisits(x.visits)
       setRehab(x.rehab)
       setDocs(x.documents)
     })
-  }, [unitId])
+  }, [unitId, allowed])
 
-  const unitTasks = useMemo(
-    () => tasks.filter((t) => t.unitId === unitId),
-    [tasks, unitId],
-  )
+  const unitTasks = useMemo(() => {
+    if (!unitId) return []
+    return visibleTasks(
+      currentUser,
+      tasks.filter((t) => t.unitId === unitId),
+    )
+  }, [tasks, unitId, currentUser])
 
   function setTab(next: Tab) {
     const p = new URLSearchParams(params)
@@ -66,6 +73,19 @@ export function UnitCase() {
 
   if (!unit) {
     return <p className="text-slate-gray">יחידה לא נמצאה</p>
+  }
+
+  if (!allowed) {
+    return (
+      <Panel>
+        <p className="text-[14px] text-slate-gray">
+          אין הרשאה לצפות ביחידת טיפול זו — אינה בשיוך המשתמש הנוכחי.
+        </p>
+        <Link to="/units" className="mt-3 inline-flex text-signal-blue hover:underline">
+          חזרה לרשימת היחידות
+        </Link>
+      </Panel>
+    )
   }
 
   return (
@@ -192,36 +212,36 @@ export function UnitCase() {
             ביקורים — אבטיפוס מבני בלבד, לא אפיון קליני. אין נתונים רפואיים.
           </AssumptionBanner>
           <Panel>
-              <h2 className="mb-2 text-[16px] font-semibold">
-                תיעוד ביקור (דמה){action === 'visit' ? ' · פעולה מהירה' : ''}
-              </h2>
-              <Textarea
-                value={visitNote}
-                onChange={(e) => setVisitNote(e.target.value)}
-                placeholder="סיכום מבני של הביקור…"
-              />
-              <Button
-                className="mt-2"
-                size="sm"
-                onClick={() => {
-                  if (!visitNote.trim()) return
-                  setVisits((prev) => [
-                    {
-                      id: `v-${Date.now()}`,
-                      unitId: unit.id,
-                      date: new Date().toISOString().slice(0, 10),
-                      summary: visitNote.trim(),
-                      visitedBy: 'משתמש נוכחי',
-                    },
-                    ...prev,
-                  ])
-                  setVisitNote('')
-                  showToast('ביקור תועד (דמה מקומי)')
-                }}
-              >
-                שמירת ביקור
-              </Button>
-            </Panel>
+            <h2 className="mb-2 text-[16px] font-semibold">
+              תיעוד ביקור (דמה){action === 'visit' ? ' · פעולה מהירה' : ''}
+            </h2>
+            <Textarea
+              value={visitNote}
+              onChange={(e) => setVisitNote(e.target.value)}
+              placeholder="סיכום מבני של הביקור…"
+            />
+            <Button
+              className="mt-2"
+              size="sm"
+              onClick={() => {
+                if (!visitNote.trim()) return
+                setVisits((prev) => [
+                  {
+                    id: `v-${Date.now()}`,
+                    unitId: unit.id,
+                    date: new Date().toISOString().slice(0, 10),
+                    summary: visitNote.trim(),
+                    visitedBy: currentUser.name,
+                  },
+                  ...prev,
+                ])
+                setVisitNote('')
+                showToast('ביקור תועד (דמה מקומי)')
+              }}
+            >
+              שמירת ביקור
+            </Button>
+          </Panel>
           <Panel className="!p-0 overflow-hidden">
             <ul className="divide-y divide-hairline">
               {visits.map((v) => (
@@ -245,10 +265,29 @@ export function UnitCase() {
       {tab === 'rehab' && (
         <div className="space-y-4">
           <AssumptionBanner>
-            שיקום — אבטיפוס מבני בלבד. פרטים רפואיים/קליניים אינם מתועדים בפורטל.
+            שיקום — אבטיפוס מבני בלבד. עדכון חייב להיות משויך לבן/בת משפחה ספציפי.
           </AssumptionBanner>
           <Panel>
-            <h2 className="mb-2 text-[16px] font-semibold">עדכון שיקום (דמה)</h2>
+            <h2 className="mb-2 text-[16px] font-semibold">
+              עדכון שיקום (דמה){action === 'rehab' ? ' · פעולה מהירה' : ''}
+            </h2>
+            <label className="mb-2 block space-y-1.5">
+              <span className="text-[13px] font-semibold">
+                בן/בת משפחה <span className="text-danger">*</span>
+              </span>
+              <select
+                className="h-10 w-full rounded-md border border-hairline bg-pebble px-3 text-[14px]"
+                value={rehabMemberId}
+                onChange={(e) => setRehabMemberId(e.target.value)}
+              >
+                <option value="">בחרו בן/בת משפחה…</option>
+                {unit.members.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name} ({m.relation})
+                  </option>
+                ))}
+              </select>
+            </label>
             <Input
               className="mb-2"
               value={rehabTitle}
@@ -264,20 +303,23 @@ export function UnitCase() {
               className="mt-2"
               size="sm"
               onClick={() => {
+                if (!rehabMemberId) {
+                  showToast('יש לבחור בן/בת משפחה לעדכון שיקום')
+                  return
+                }
                 if (!rehabTitle.trim() || !rehabNote.trim()) return
-                setRehab((prev) => [
-                  {
-                    id: `r-${Date.now()}`,
-                    unitId: unit.id,
-                    date: new Date().toISOString().slice(0, 10),
-                    title: rehabTitle.trim(),
-                    note: rehabNote.trim(),
-                  },
-                  ...prev,
-                ])
-                setRehabTitle('')
-                setRehabNote('')
-                showToast('עדכון שיקום נשמר (דמה מקומי)')
+                void addRehabNote({
+                  unitId: unit.id,
+                  memberId: rehabMemberId,
+                  title: rehabTitle.trim(),
+                  note: rehabNote.trim(),
+                }).then((created) => {
+                  setRehab((prev) => [created, ...prev])
+                  setRehabTitle('')
+                  setRehabNote('')
+                  setRehabMemberId('')
+                  showToast('עדכון שיקום נשמר לבן/בת המשפחה')
+                })
               }}
             >
               שמירת עדכון
@@ -285,13 +327,19 @@ export function UnitCase() {
           </Panel>
           <Panel className="!p-0 overflow-hidden">
             <ul className="divide-y divide-hairline">
-              {rehab.map((r) => (
-                <li key={r.id} className="px-4 py-3 sm:px-6">
-                  <div className="text-[12px] text-mist-gray">{r.date}</div>
-                  <div className="font-semibold">{r.title}</div>
-                  <p className="mt-1 text-[14px] text-slate-gray">{r.note}</p>
-                </li>
-              ))}
+              {rehab.map((r) => {
+                const person = getMember(r.unitId, r.memberId)
+                return (
+                  <li key={r.id} className="px-4 py-3 sm:px-6">
+                    <div className="text-[12px] text-mist-gray">
+                      {r.date}
+                      {person ? ` · ${person.name}` : ''}
+                    </div>
+                    <div className="font-semibold">{r.title}</div>
+                    <p className="mt-1 text-[14px] text-slate-gray">{r.note}</p>
+                  </li>
+                )
+              })}
             </ul>
           </Panel>
         </div>
