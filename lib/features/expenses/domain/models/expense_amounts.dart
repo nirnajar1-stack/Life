@@ -1,4 +1,5 @@
 import '../../data/models/expense_model.dart';
+import 'expense_calendar.dart';
 import 'expense_nature.dart';
 
 /// Canonical paid amount for analytics / budget / forecast.
@@ -19,16 +20,8 @@ double effectiveAmount(ExpenseModel expense) {
 
 /// Calendar date that owns the expense for monthly bucketing.
 ///
-/// Uses [ExpenseModel.purchaseDate] (transaction_date) when set; otherwise
-/// the local calendar day of [ExpenseModel.createdAt].
-DateTime transactionDate(ExpenseModel expense) {
-  final purchase = expense.purchaseDate;
-  if (purchase != null) {
-    return DateTime(purchase.year, purchase.month, purchase.day);
-  }
-  final c = expense.createdAt.toLocal();
-  return DateTime(c.year, c.month, c.day);
-}
+/// Delegates to [ExpenseModel.transactionDate] (installment-aware).
+DateTime transactionDate(ExpenseModel expense) => expense.transactionDate;
 
 /// Date-source labels for UI / Telegram confirmations.
 class ExpenseDateSource {

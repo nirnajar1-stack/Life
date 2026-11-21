@@ -1,3 +1,4 @@
+import '../../domain/models/expense_calendar.dart';
 import '../../domain/models/expense_nature.dart';
 
 /// Represents a single row from the flat `expenses_new` table in Supabase.
@@ -79,14 +80,20 @@ class ExpenseModel {
   double get actualAmount =>
       SharedExpenseFlag.actualAmount(effectiveGross, sharedExp);
 
-  /// Calendar transaction date (purchase_date / transaction_date).
+  /// Calendar date that owns this row for monthly totals.
+  ///
+  /// Installment charges share one plan [purchaseDate] (original buy date).
+  /// Monthly bucketing must use the charge date ([createdAt]), otherwise
+  /// every installment collapses into the purchase month.
   DateTime get transactionDate {
+    if (isInstallment) {
+      return expenseCalendarDate(createdAt);
+    }
     final purchase = purchaseDate;
     if (purchase != null) {
       return DateTime(purchase.year, purchase.month, purchase.day);
     }
-    final c = createdAt.toLocal();
-    return DateTime(c.year, c.month, c.day);
+    return expenseCalendarDate(createdAt);
   }
 
   bool get isSharedExpense => SharedExpenseFlag.isShared(sharedExp);
