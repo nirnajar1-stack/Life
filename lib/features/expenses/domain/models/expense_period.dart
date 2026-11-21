@@ -38,7 +38,8 @@ DateTime? periodStart(ExpensePeriod period, {DateTime? now}) {
   }
 }
 
-/// Filters expenses to those whose [createdAt] falls inside [period].
+/// Filters expenses to those whose [ExpenseModel.transactionDate] falls
+/// inside [period] (not created_at — audit only).
 List<ExpenseModel> filterExpensesByPeriod(
   List<ExpenseModel> expenses,
   ExpensePeriod period, {
@@ -47,5 +48,7 @@ List<ExpenseModel> filterExpensesByPeriod(
   final start = periodStart(period, now: now);
   if (start == null) return List<ExpenseModel>.from(expenses);
 
-  return expenses.where((e) => !e.createdAt.isBefore(start)).toList();
+  return expenses
+      .where((e) => !e.transactionDate.isBefore(start))
+      .toList();
 }

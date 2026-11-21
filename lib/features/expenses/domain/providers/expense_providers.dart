@@ -57,7 +57,8 @@ final monthExpenseTotalProvider = Provider<AsyncValue<double>>((ref) {
   return ref.watch(expensesRawProvider).whenData(
         (expenses) => expenses
             .where((e) =>
-                !e.createdAt.isBefore(start) && e.createdAt.isBefore(end))
+                !e.transactionDate.isBefore(start) &&
+                e.transactionDate.isBefore(end))
             .fold<double>(0, (sum, e) => sum + e.actualAmount),
       );
 });

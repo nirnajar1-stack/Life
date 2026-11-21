@@ -22,6 +22,13 @@ class ExpenseModel {
   final int? installmentsTotal;
   final DateTime? purchaseDate;
   final String? recurringExpenseId;
+  final double? paidAmount;
+  final double? grossAmount;
+  final double? discountAmount;
+  final String? dateSource;
+  final DateTime? sourceMessageTimestamp;
+  final double? extractionConfidence;
+  final String? extractedTotalLabel;
 
   const ExpenseModel({
     required this.id,
@@ -41,6 +48,13 @@ class ExpenseModel {
     this.installmentsTotal,
     this.purchaseDate,
     this.recurringExpenseId,
+    this.paidAmount,
+    this.grossAmount,
+    this.discountAmount,
+    this.dateSource,
+    this.sourceMessageTimestamp,
+    this.extractionConfidence,
+    this.extractedTotalLabel,
   });
 
   /// Category with surrounding whitespace removed (raw data is inconsistent).
@@ -58,9 +72,22 @@ class ExpenseModel {
     return 'תשלום $installmentNumber/$installmentsTotal';
   }
 
-  /// Amount that counts toward monthly/category totals after shared split.
+  /// Paid amount used for analytics: [paidAmount] when set, else [amount].
+  double get effectiveGross => paidAmount ?? amount;
+
+  /// Personal share after shared split of the effective paid amount.
   double get actualAmount =>
-      SharedExpenseFlag.actualAmount(amount, sharedExp);
+      SharedExpenseFlag.actualAmount(effectiveGross, sharedExp);
+
+  /// Calendar transaction date (purchase_date / transaction_date).
+  DateTime get transactionDate {
+    final purchase = purchaseDate;
+    if (purchase != null) {
+      return DateTime(purchase.year, purchase.month, purchase.day);
+    }
+    final c = createdAt.toLocal();
+    return DateTime(c.year, c.month, c.day);
+  }
 
   bool get isSharedExpense => SharedExpenseFlag.isShared(sharedExp);
 
@@ -83,6 +110,13 @@ class ExpenseModel {
       installmentsTotal: _parseInt(json['installments_total']),
       purchaseDate: _parseDate(json['purchase_date']),
       recurringExpenseId: json['recurring_expense_id'] as String?,
+      paidAmount: _parseOptionalAmount(json['paid_amount']),
+      grossAmount: _parseOptionalAmount(json['gross_amount']),
+      discountAmount: _parseOptionalAmount(json['discount_amount']),
+      dateSource: json['date_source'] as String?,
+      sourceMessageTimestamp: _parseDateTime(json['source_message_timestamp']),
+      extractionConfidence: _parseOptionalAmount(json['extraction_confidence']),
+      extractedTotalLabel: json['extracted_total_label'] as String?,
     );
   }
 
@@ -104,6 +138,13 @@ class ExpenseModel {
       'installment_number': installmentNumber,
       'installments_total': installmentsTotal,
       'purchase_date': _dateOnly(purchaseDate),
+      'paid_amount': paidAmount,
+      'gross_amount': grossAmount,
+      'discount_amount': discountAmount,
+      'date_source': dateSource,
+      'source_message_timestamp': sourceMessageTimestamp?.toIso8601String(),
+      'extraction_confidence': extractionConfidence,
+      'extracted_total_label': extractedTotalLabel,
     };
   }
 
@@ -123,7 +164,14 @@ class ExpenseModel {
       'installment_group_id': installmentGroupId,
       'installment_number': installmentNumber,
       'installments_total': installmentsTotal,
-      'purchase_date': _dateOnly(purchaseDate),
+      'purchase_date': _dateOnly(purchaseDate ?? createdAt),
+      'paid_amount': paidAmount,
+      'gross_amount': grossAmount,
+      'discount_amount': discountAmount,
+      'date_source': dateSource ?? 'manual',
+      'source_message_timestamp': sourceMessageTimestamp?.toIso8601String(),
+      'extraction_confidence': extractionConfidence,
+      'extracted_total_label': extractedTotalLabel,
     };
   }
 
@@ -143,6 +191,13 @@ class ExpenseModel {
       'installment_number': installmentNumber,
       'installments_total': installmentsTotal,
       'purchase_date': _dateOnly(purchaseDate),
+      'paid_amount': paidAmount,
+      'gross_amount': grossAmount,
+      'discount_amount': discountAmount,
+      'date_source': dateSource,
+      'source_message_timestamp': sourceMessageTimestamp?.toIso8601String(),
+      'extraction_confidence': extractionConfidence,
+      'extracted_total_label': extractedTotalLabel,
     };
   }
 
@@ -163,6 +218,14 @@ class ExpenseModel {
     int? installmentNumber,
     int? installmentsTotal,
     DateTime? purchaseDate,
+    String? recurringExpenseId,
+    double? paidAmount,
+    double? grossAmount,
+    double? discountAmount,
+    String? dateSource,
+    DateTime? sourceMessageTimestamp,
+    double? extractionConfidence,
+    String? extractedTotalLabel,
   }) {
     return ExpenseModel(
       id: id ?? this.id,
@@ -181,6 +244,15 @@ class ExpenseModel {
       installmentNumber: installmentNumber ?? this.installmentNumber,
       installmentsTotal: installmentsTotal ?? this.installmentsTotal,
       purchaseDate: purchaseDate ?? this.purchaseDate,
+      recurringExpenseId: recurringExpenseId ?? this.recurringExpenseId,
+      paidAmount: paidAmount ?? this.paidAmount,
+      grossAmount: grossAmount ?? this.grossAmount,
+      discountAmount: discountAmount ?? this.discountAmount,
+      dateSource: dateSource ?? this.dateSource,
+      sourceMessageTimestamp:
+          sourceMessageTimestamp ?? this.sourceMessageTimestamp,
+      extractionConfidence: extractionConfidence ?? this.extractionConfidence,
+      extractedTotalLabel: extractedTotalLabel ?? this.extractedTotalLabel,
     );
   }
 
@@ -190,6 +262,12 @@ class ExpenseModel {
     return double.tryParse(value.toString()) ?? 0;
   }
 
+  static double? _parseOptionalAmount(dynamic value) {
+    if (value == null) return null;
+    if (value is num) return value.toDouble();
+    return double.tryParse(value.toString());
+  }
+
   static int? _parseInt(dynamic value) {
     if (value == null) return null;
     if (value is num) return value.toInt();
@@ -197,6 +275,11 @@ class ExpenseModel {
   }
 
   static DateTime? _parseDate(dynamic value) {
+    if (value == null) return null;
+    return DateTime.tryParse(value.toString());
+  }
+
+  static DateTime? _parseDateTime(dynamic value) {
     if (value == null) return null;
     return DateTime.tryParse(value.toString());
   }

@@ -230,7 +230,7 @@ ExpenseDashboard buildExpenseDashboard(
   for (final e in expenses) {
     final personal = e.actualAmount;
     grandTotal += personal;
-    final monthKey = _monthKey(e.createdAt);
+    final monthKey = _monthKey(e.transactionDate);
 
     monthTotals[monthKey] = (monthTotals[monthKey] ?? 0) + personal;
     monthItems[monthKey] = (monthItems[monthKey] ?? 0) + 1;

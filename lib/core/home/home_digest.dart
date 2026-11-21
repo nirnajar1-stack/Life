@@ -112,14 +112,16 @@ class HomeDigest {
       ..sort((a, b) =>
           (a.dueDate ?? a.createdAt).compareTo(b.dueDate ?? a.createdAt));
 
-    final thisMonth = expenses.where((e) => !e.createdAt.isBefore(monthStart));
+    final thisMonth = expenses.where((e) => !e.transactionDate.isBefore(monthStart));
     final thisMonthIncomes =
         incomes.where((i) => !i.createdAt.isBefore(monthStart));
     final previousMonth = expenses.where(
       (e) =>
-          !e.createdAt.isBefore(previousStart) && e.createdAt.isBefore(monthStart),
+          !e.transactionDate.isBefore(previousStart) &&
+          e.transactionDate.isBefore(monthStart),
     );
-    final todayItems = expenses.where((e) => !e.createdAt.isBefore(todayStart));
+    final todayItems =
+        expenses.where((e) => !e.transactionDate.isBefore(todayStart));
 
     final byParent = <String, double>{};
     for (final expense in thisMonth) {
