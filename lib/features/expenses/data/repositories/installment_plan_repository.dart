@@ -226,11 +226,6 @@ class InstallmentPlanRepository {
     required int sharedExp,
     required String source,
   }) async {
-    final purchaseDate = DateTime(
-      firstChargeDate.year,
-      firstChargeDate.month,
-      firstChargeDate.day,
-    );
     final amounts = splitInstallmentAmounts(
       totalAmount: totalAmount,
       installmentsCount: installmentsCount,
@@ -239,6 +234,13 @@ class InstallmentPlanRepository {
     final rows = <Map<String, dynamic>>[];
     for (var i = 1; i <= installmentsCount; i++) {
       final chargeDate = installmentChargeDate(firstChargeDate, i);
+      // purchase_date = charge month (not plan buy date) so monthly totals
+      // attribute each installment to the month it is due.
+      final chargeDay = DateTime(
+        chargeDate.year,
+        chargeDate.month,
+        chargeDate.day,
+      );
       rows.add({
         'created_at': chargeDate.toIso8601String(),
         'item_name': title,
@@ -252,9 +254,9 @@ class InstallmentPlanRepository {
         'installment_number': i,
         'installments_total': installmentsCount,
         'purchase_date':
-            '${purchaseDate.year.toString().padLeft(4, '0')}-'
-            '${purchaseDate.month.toString().padLeft(2, '0')}-'
-            '${purchaseDate.day.toString().padLeft(2, '0')}',
+            '${chargeDay.year.toString().padLeft(4, '0')}-'
+            '${chargeDay.month.toString().padLeft(2, '0')}-'
+            '${chargeDay.day.toString().padLeft(2, '0')}',
       });
     }
 

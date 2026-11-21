@@ -97,6 +97,24 @@ void main() {
       expect(ExpenseDateSource.hebrewLabel('receipt'), 'חשבונית');
     });
 
+    test('installment uses charge created_at, not shared purchase_date', () {
+      final e = ExpenseModel(
+        id: 9,
+        createdAt: DateTime.utc(2026, 11, 10, 12),
+        itemName: 'הלוואה לקניית הרכב',
+        amount: 1323.87,
+        category: 'תחבורה',
+        subCategory: 'הלוואת רכב',
+        uuid: 'u',
+        insertedAt: DateTime.utc(2026, 11, 10),
+        purchaseDate: DateTime(2026, 3, 10),
+        installmentGroupId: '04e26d0b-8a9f-4803-b8e7-4d43a96f9189',
+        installmentNumber: 9,
+        installmentsTotal: 48,
+      );
+      expect(e.transactionDate, DateTime(2026, 11, 10));
+    });
+
     test('receipt date preferred conceptually over telegram fallback', () {
       // When OCR finds a date, date_source=receipt and purchase_date is set.
       final fromReceipt = _exp(
