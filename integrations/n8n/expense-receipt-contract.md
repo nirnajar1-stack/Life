@@ -66,3 +66,20 @@ Line items: העדף `final_line_total` על פני `qty * unit_price`.
 ## Shared
 
 ברירת מחדל למשק בית משותף: `Shared_exp = 2` אלא אם המשתמש סימן אחרת.
+
+## Behavior (`expense_behavior_type`)
+
+ערכים מותרים:
+
+| Value | Daily Pace | Monthly Cashflow |
+|-------|------------|------------------|
+| `fixed_commitment` | ❌ | ✅ |
+| `recurring_variable` | ❌ | ✅ |
+| `variable_discretionary` | ✅ | ✅ |
+| `one_time` | ❌ | ✅ |
+
+`one_time` רק להוצאה חריגה משמעותית (טיסה / מלון / חופשה / ריהוט גדול / מחשב משמעותי) — לא לקניות שוטפות.
+
+Installments: לא נכנסים ל־Daily Pace, כן נכנסים ל־Monthly Expected Outflow / Balance / Future Commitments.
+
+Legacy rows ללא ערך בעמודה מסווגים בזמן קריאה ע״י `deriveExpenseBehaviorType` (בלי backfill).

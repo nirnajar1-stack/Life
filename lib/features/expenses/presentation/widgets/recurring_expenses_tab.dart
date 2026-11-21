@@ -7,6 +7,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/adaptive_form.dart';
 import '../../../../core/widgets/app_feedback.dart';
 import '../../data/models/recurring_expense_model.dart';
+import '../../domain/models/expense_behavior.dart';
 import '../../domain/providers/recurring_expense_providers.dart';
 import '../widgets/shared_split_controls.dart';
 import '../screens/recurring_expense_form_screen.dart';
@@ -60,7 +61,7 @@ class RecurringExpensesTab extends ConsumerWidget {
       builder: (ctx) => Directionality(
         textDirection: TextDirection.rtl,
         child: AlertDialog(
-          title: const Text('מחיקת הוצאה קבועה'),
+          title: const Text('מחיקת התחייבות'),
           content: Text('למחוק את "${template.title}"? החיובים שכבר נוצרו יישארו בפנקס.'),
           actions: [
             TextButton(
@@ -144,20 +145,36 @@ class RecurringExpensesTab extends ConsumerWidget {
     return async.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (error, _) => AppErrorState(
-        title: 'שגיאה בטעינת הוצאות קבועות',
+        title: 'שגיאה בטעינת התחייבויות',
         error: error,
         onRetry: () => ref.invalidate(recurringExpensesProvider),
       ),
       data: (items) {
         final active = items.where((item) => item.isActive).toList();
         final paused = items.where((item) => !item.isActive).toList();
-        final monthlyTotal = active.fold<double>(
+
+        final fixed = <RecurringExpenseModel>[];
+        final recurringVar = <RecurringExpenseModel>[];
+        for (final t in active) {
+          final b = deriveRecurringTemplateBehavior(t);
+          if (b == ExpenseBehaviorType.recurringVariable || t.amountVariable) {
+            recurringVar.add(t);
+          } else {
+            fixed.add(t);
+          }
+        }
+
+        final fixedTotal = fixed.fold<double>(
           0,
-          (sum, item) =>
-              item.amountVariable ? sum : sum + item.actualAmount,
+          (sum, item) => sum + item.actualAmount,
         );
-        final pendingVariable = active
-            .where((item) => item.amountVariable && !item.chargedThisMonth)
+        final variableAvg = recurringVar.fold<double>(
+          0,
+          (sum, item) => sum + item.actualAmount,
+        );
+        final expectedBase = fixedTotal + variableAvg;
+        final pendingVariable = recurringVar
+            .where((item) => !item.chargedThisMonth)
             .length;
 
         if (items.isEmpty) {
@@ -165,10 +182,10 @@ class RecurringExpensesTab extends ConsumerWidget {
             onRefresh: onRefresh,
             child: AppEmptyState(
               icon: Icons.event_repeat,
-              title: 'אין הוצאות קבועות',
+              title: 'אין התחייבויות',
               message:
-                  'הוסף שכ״ד, ארנונה או מנוי — המערכת תיצור אותם אוטומטית בפנקש בכל חודש.',
-              actionLabel: 'הוצאה קבועה',
+                  'הוסף שכ״ד, ביטוח, מנוי או חשבון חוזר — המערכת תיצור חיובים אוטומטית או תזכיר להזין סכום.',
+              actionLabel: 'התחייבות חדשה',
               onAction: () => _openForm(context, ref),
             ),
           );
@@ -186,27 +203,38 @@ class RecurringExpensesTab extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'סה״כ קבועות פעילות (החלק שלך)',
-                      style: TextStyle(color: AppColors.muted, fontSize: 13),
-                    ),
-                    const SizedBox(height: 4),
                     Text(
-                      _currency.format(monthlyTotal),
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      'התחייבויות והוצאות חוזרות',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.w800,
                           ),
                     ),
+                    const SizedBox(height: 12),
+                    _SummaryRow(
+                      label: 'סה״כ התחייבויות קבועות',
+                      value: _currency.format(fixedTotal),
+                    ),
                     const SizedBox(height: 6),
+                    _SummaryRow(
+                      label: 'סה״כ הוצאות חוזרות משתנות ממוצעות',
+                      value: _currency.format(variableAvg),
+                    ),
+                    const SizedBox(height: 6),
+                    _SummaryRow(
+                      label: 'סה״כ בסיס חודשי צפוי',
+                      value: _currency.format(expectedBase),
+                      emphasize: true,
+                    ),
+                    const SizedBox(height: 8),
                     const Text(
-                      'בכל פתיחה נוצרים חיובים קבועים; סכומים משתנים (חשמל, מים…) מוזנים ידנית בסוף החודש.',
+                      'קבועות נוצרות אוטומטית; חוזרות משתנות (חשמל, מים…) מוזנות ידנית בסוף החודש.',
                       style: TextStyle(color: AppColors.muted, fontSize: 12),
                     ),
                     if (pendingVariable > 0) ...[
                       const SizedBox(height: 6),
                       Text(
                         '$pendingVariable חשבונות ממתינים לסכום החודש',
-                        style: TextStyle(
+                        style: const TextStyle(
                           color: AppColors.warning,
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
@@ -218,24 +246,52 @@ class RecurringExpensesTab extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 16),
-            for (final template in active) ...[
-              _TemplateCard(
-                template: template,
-                onEdit: () => _openForm(context, ref, template: template),
-                onToggle: () => _toggleActive(context, ref, template),
-                onDelete: () => _delete(context, ref, template),
-                onRecordVariable: template.amountVariable
-                    ? () => _recordVariableCharge(context, ref, template)
-                    : null,
-              ),
-              const SizedBox(height: 8),
-            ],
+            const _SectionHeader('א. התחייבויות קבועות'),
+            const SizedBox(height: 8),
+            if (fixed.isEmpty)
+              const Padding(
+                padding: EdgeInsets.only(bottom: 8),
+                child: Text(
+                  'אין התחייבויות קבועות פעילות',
+                  style: TextStyle(color: AppColors.muted, fontSize: 13),
+                ),
+              )
+            else
+              for (final template in fixed) ...[
+                _TemplateCard(
+                  template: template,
+                  onEdit: () => _openForm(context, ref, template: template),
+                  onToggle: () => _toggleActive(context, ref, template),
+                  onDelete: () => _delete(context, ref, template),
+                ),
+                const SizedBox(height: 8),
+              ],
+            const SizedBox(height: 8),
+            const _SectionHeader('ב. הוצאות חוזרות משתנות'),
+            const SizedBox(height: 8),
+            if (recurringVar.isEmpty)
+              const Padding(
+                padding: EdgeInsets.only(bottom: 8),
+                child: Text(
+                  'אין הוצאות חוזרות משתנות',
+                  style: TextStyle(color: AppColors.muted, fontSize: 13),
+                ),
+              )
+            else
+              for (final template in recurringVar) ...[
+                _TemplateCard(
+                  template: template,
+                  onEdit: () => _openForm(context, ref, template: template),
+                  onToggle: () => _toggleActive(context, ref, template),
+                  onDelete: () => _delete(context, ref, template),
+                  onRecordVariable: () =>
+                      _recordVariableCharge(context, ref, template),
+                ),
+                const SizedBox(height: 8),
+              ],
             if (paused.isNotEmpty) ...[
               const SizedBox(height: 12),
-              const Text(
-                'מושהות',
-                style: TextStyle(fontWeight: FontWeight.w800, color: AppColors.muted),
-              ),
+              const _SectionHeader('מושהות'),
               const SizedBox(height: 8),
               for (final template in paused) ...[
                 _TemplateCard(
@@ -251,6 +307,60 @@ class RecurringExpensesTab extends ConsumerWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader(this.title);
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      title,
+      style: const TextStyle(
+        fontWeight: FontWeight.w800,
+        color: AppColors.muted,
+      ),
+    );
+  }
+}
+
+class _SummaryRow extends StatelessWidget {
+  const _SummaryRow({
+    required this.label,
+    required this.value,
+    this.emphasize = false,
+  });
+
+  final String label;
+  final String value;
+  final bool emphasize;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            label,
+            style: TextStyle(
+              color: AppColors.muted,
+              fontSize: emphasize ? 14 : 13,
+              fontWeight: emphasize ? FontWeight.w700 : FontWeight.w500,
+            ),
+          ),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            fontWeight: FontWeight.w800,
+            fontSize: emphasize ? 18 : 15,
+          ),
+        ),
+      ],
     );
   }
 }

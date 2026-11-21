@@ -30,6 +30,7 @@ class ExpenseModel {
   final DateTime? sourceMessageTimestamp;
   final double? extractionConfidence;
   final String? extractedTotalLabel;
+  final String? expenseBehaviorType;
 
   const ExpenseModel({
     required this.id,
@@ -56,6 +57,7 @@ class ExpenseModel {
     this.sourceMessageTimestamp,
     this.extractionConfidence,
     this.extractedTotalLabel,
+    this.expenseBehaviorType,
   });
 
   /// Category with surrounding whitespace removed (raw data is inconsistent).
@@ -124,6 +126,7 @@ class ExpenseModel {
       sourceMessageTimestamp: _parseDateTime(json['source_message_timestamp']),
       extractionConfidence: _parseOptionalAmount(json['extraction_confidence']),
       extractedTotalLabel: json['extracted_total_label'] as String?,
+      expenseBehaviorType: json['expense_behavior_type'] as String?,
     );
   }
 
@@ -152,6 +155,7 @@ class ExpenseModel {
       'source_message_timestamp': sourceMessageTimestamp?.toIso8601String(),
       'extraction_confidence': extractionConfidence,
       'extracted_total_label': extractedTotalLabel,
+      'expense_behavior_type': expenseBehaviorType,
     };
   }
 
@@ -179,6 +183,8 @@ class ExpenseModel {
       'source_message_timestamp': sourceMessageTimestamp?.toIso8601String(),
       'extraction_confidence': extractionConfidence,
       'extracted_total_label': extractedTotalLabel,
+      if (expenseBehaviorType != null)
+        'expense_behavior_type': expenseBehaviorType,
     };
   }
 
@@ -205,6 +211,7 @@ class ExpenseModel {
       'source_message_timestamp': sourceMessageTimestamp?.toIso8601String(),
       'extraction_confidence': extractionConfidence,
       'extracted_total_label': extractedTotalLabel,
+      'expense_behavior_type': expenseBehaviorType,
     };
   }
 
@@ -233,6 +240,7 @@ class ExpenseModel {
     DateTime? sourceMessageTimestamp,
     double? extractionConfidence,
     String? extractedTotalLabel,
+    String? expenseBehaviorType,
   }) {
     return ExpenseModel(
       id: id ?? this.id,
@@ -260,6 +268,7 @@ class ExpenseModel {
           sourceMessageTimestamp ?? this.sourceMessageTimestamp,
       extractionConfidence: extractionConfidence ?? this.extractionConfidence,
       extractedTotalLabel: extractedTotalLabel ?? this.extractedTotalLabel,
+      expenseBehaviorType: expenseBehaviorType ?? this.expenseBehaviorType,
     );
   }
 

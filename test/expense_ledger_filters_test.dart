@@ -9,8 +9,11 @@ ExpenseModel _item({
   int sharedExp = 0,
   int? isFixed,
   String? installmentGroupId,
+  String? behavior,
   String source = 'life_app',
   String name = 'item',
+  String category = 'מזון',
+  String sub = '',
 }) {
   final now = DateTime(2026, 10, 10);
   return ExpenseModel(
@@ -18,10 +21,11 @@ ExpenseModel _item({
     createdAt: now,
     itemName: name,
     amount: amount,
-    category: 'מזון',
-    subCategory: '',
+    category: category,
+    subCategory: sub,
     isFixed: isFixed,
     installmentGroupId: installmentGroupId,
+    expenseBehaviorType: behavior,
     source: source,
     uuid: 'uuid-$id',
     insertedAt: now,
@@ -38,12 +42,29 @@ ExpenseTransaction _tx(List<ExpenseModel> items) {
 }
 
 void main() {
-  test('shared / personal / nature filters', () {
+  test('shared / personal / behavior filters', () {
     final shared = _tx([_item(id: 1, amount: 100, sharedExp: 2)]);
     final personal = _tx([_item(id: 2, amount: 50)]);
-    final fixed = _tx([_item(id: 3, amount: 3100, isFixed: 1, name: 'שכ״ד')]);
+    final fixed = _tx([
+      _item(id: 3, amount: 3100, isFixed: 1, name: 'שכ״ד', category: 'דיור'),
+    ]);
     final installment = _tx([
-      _item(id: 4, amount: 144, installmentGroupId: 'plan-1', name: 'מחשב'),
+      _item(
+        id: 4,
+        amount: 144,
+        installmentGroupId: 'plan-1',
+        name: 'מחשב',
+        category: 'קניות',
+      ),
+    ]);
+    final discretionary = _tx([
+      _item(
+        id: 5,
+        amount: 80,
+        name: 'מסעדה',
+        category: 'מזון',
+        sub: 'מסעדות',
+      ),
     ]);
 
     expect(
@@ -63,14 +84,27 @@ void main() {
     expect(
       transactionMatchesLedgerFilters(
         fixed,
-        const ExpenseLedgerFilters(nature: ExpenseNatureFilter.fixed),
+        const ExpenseLedgerFilters(
+          behavior: ExpenseBehaviorFilter.fixedCommitment,
+        ),
       ),
       isTrue,
     );
     expect(
       transactionMatchesLedgerFilters(
         installment,
-        const ExpenseLedgerFilters(nature: ExpenseNatureFilter.installment),
+        const ExpenseLedgerFilters(
+          behavior: ExpenseBehaviorFilter.fixedCommitment,
+        ),
+      ),
+      isTrue,
+    );
+    expect(
+      transactionMatchesLedgerFilters(
+        discretionary,
+        const ExpenseLedgerFilters(
+          behavior: ExpenseBehaviorFilter.variableDiscretionary,
+        ),
       ),
       isTrue,
     );

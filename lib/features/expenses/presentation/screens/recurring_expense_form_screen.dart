@@ -6,6 +6,7 @@ import 'package:intl/intl.dart' hide TextDirection;
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/adaptive_form.dart';
 import '../../data/models/recurring_expense_model.dart';
+import '../../domain/models/expense_behavior.dart';
 import '../../domain/models/expense_category_taxonomy.dart';
 import '../../domain/models/expense_nature.dart';
 import '../../domain/providers/recurring_expense_providers.dart';
@@ -146,6 +147,9 @@ class _RecurringExpenseFormScreenState
       startDate: _startDate,
       endDate: _endDate,
       clearEndDate: _endDate == null,
+      expenseBehaviorType: _amountVariable
+          ? ExpenseBehaviorType.recurringVariable.dbValue
+          : ExpenseBehaviorType.fixedCommitment.dbValue,
     );
 
     try {
@@ -175,7 +179,8 @@ class _RecurringExpenseFormScreenState
         backgroundColor: inDialog ? Colors.white : AppColors.surface,
         appBar: AppBar(
           backgroundColor: inDialog ? Colors.white : null,
-          title: Text(widget.isEditing ? 'עריכת הוצאה קבועה' : 'הוצאה קבועה חדשה'),
+          title: Text(
+              widget.isEditing ? 'עריכת התחייבות' : 'התחייבות / הוצאה חוזרת'),
           leading: IconButton(
             icon: const Icon(Icons.close),
             onPressed: () => Navigator.pop(context),
@@ -237,7 +242,7 @@ class _RecurringExpenseFormScreenState
                   ] else ...[
                     const SizedBox(height: 8),
                     const Text(
-                      'לא ייווצר חיוב אוטומטי — תקבל תזכורת להזין סכום בטאב קבועות.',
+                      'לא ייווצר חיוב אוטומטי — תקבל תזכורת להזין סכום בטאב התחייבויות.',
                       style: TextStyle(color: AppColors.muted, fontSize: 12),
                     ),
                   ],

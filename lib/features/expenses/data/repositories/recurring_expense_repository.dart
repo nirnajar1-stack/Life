@@ -2,6 +2,7 @@ import 'dart:developer' as developer;
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../domain/models/expense_behavior.dart';
 import '../models/expense_model.dart';
 import '../models/recurring_expense_model.dart';
 
@@ -179,6 +180,7 @@ class RecurringExpenseRepository {
       day,
       12,
     );
+    final behavior = deriveRecurringTemplateBehavior(template);
     final expense = ExpenseModel(
       id: 0,
       createdAt: chargeDate,
@@ -186,11 +188,12 @@ class RecurringExpenseRepository {
       amount: amount,
       category: template.category,
       subCategory: template.subCategory,
-      isFixed: 1,
+      isFixed: behavior.isFixedDbValue,
       source: 'life_app_recurring',
       uuid: '',
       insertedAt: DateTime.now(),
       sharedExp: template.sharedExp,
+      expenseBehaviorType: behavior.dbValue,
     );
 
     await _client.from(_charges).insert({
@@ -297,6 +300,7 @@ class RecurringExpenseRepository {
     final day = template.dayOfMonth.clamp(1, 28);
     // Noon UTC keeps the calendar day stable across all timezones.
     final chargeDate = DateTime.utc(month.year, month.month, day, 12);
+    final behavior = deriveRecurringTemplateBehavior(template);
     final expense = ExpenseModel(
       id: 0,
       createdAt: chargeDate,
@@ -304,11 +308,12 @@ class RecurringExpenseRepository {
       amount: template.amount ?? 0,
       category: template.category,
       subCategory: template.subCategory,
-      isFixed: 1,
+      isFixed: behavior.isFixedDbValue,
       source: 'life_app_recurring',
       uuid: '',
       insertedAt: DateTime.now(),
       sharedExp: template.sharedExp,
+      expenseBehaviorType: behavior.dbValue,
     );
 
     final payload = {
