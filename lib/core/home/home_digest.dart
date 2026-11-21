@@ -116,10 +116,10 @@ class HomeDigest {
       ..sort((a, b) =>
           (a.dueDate ?? a.createdAt).compareTo(b.dueDate ?? a.createdAt));
 
-    // Closed calendar month — date-only aware (recurring UTC midnight safe).
+    // Closed calendar month — transaction_date (purchase_date) aware.
     final thisMonth = expenses.where(
       (e) => expenseInRange(
-        e.createdAt,
+        e.transactionDate,
         startInclusive: monthStart,
         endExclusive: monthEnd,
       ),
@@ -133,14 +133,14 @@ class HomeDigest {
     );
     final previousMonth = expenses.where(
       (e) => expenseInRange(
-        e.createdAt,
+        e.transactionDate,
         startInclusive: previousStart,
         endExclusive: monthStart,
       ),
     );
     final todayItems = expenses.where(
       (e) => expenseInRange(
-        e.createdAt,
+        e.transactionDate,
         startInclusive: todayStart,
         endExclusive: tomorrowStart,
       ),

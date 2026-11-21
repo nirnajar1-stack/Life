@@ -264,7 +264,7 @@ List<DaySpend> _buildDailyTrend(
     windowStart = today.subtract(Duration(days: maxDays - 1));
     if (expenses.isNotEmpty) {
       final earliest = expenses
-          .map((e) => _dateOnly(e.createdAt))
+          .map((e) => e.transactionDate)
           .reduce((a, b) => a.isBefore(b) ? a : b);
       if (earliest.isAfter(windowStart)) windowStart = earliest;
     }
@@ -273,7 +273,14 @@ List<DaySpend> _buildDailyTrend(
   final Map<String, double> dayTotals = {};
   final Map<String, int> dayCounts = {};
   for (final e in expenses) {
-    final day = _dateOnly(e.createdAt);
+    // Daily burn reflects variable consumption only — fixed peaks distort pace.
+    final nature = ExpenseNatureX.resolve(
+      isFixed: e.isFixed,
+      installmentGroupId: e.installmentGroupId,
+    );
+    if (nature != ExpenseNature.variable) continue;
+
+    final day = e.transactionDate;
     if (day.isBefore(windowStart) || day.isAfter(windowEnd)) continue;
     final key = _dayKey(day);
     dayTotals[key] = (dayTotals[key] ?? 0) + e.actualAmount;
@@ -314,7 +321,8 @@ ExpenseDashboard buildExpenseDashboard(
   final prevMonthKey = _monthKey(prevDate);
 
   final calendar = (calendarExpenses ?? expenses)
-      .where((e) => expenseInRange(e.createdAt, endExclusive: nextMonthStart))
+      .where((e) =>
+          expenseInRange(e.transactionDate, endExclusive: nextMonthStart))
       .toList();
 
   if (expenses.isEmpty && calendar.isEmpty) {
@@ -406,7 +414,7 @@ ExpenseDashboard buildExpenseDashboard(
 
   for (final e in calendar) {
     final personal = e.actualAmount;
-    final monthKey = _monthKey(e.createdAt);
+    final monthKey = _monthKey(e.transactionDate);
     monthTotals[monthKey] = (monthTotals[monthKey] ?? 0) + personal;
     monthItems[monthKey] = (monthItems[monthKey] ?? 0) + 1;
 

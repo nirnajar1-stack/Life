@@ -10,6 +10,8 @@ import '../../domain/models/expense_category_taxonomy.dart';
 import '../../domain/models/expense_dashboard.dart';
 import '../../domain/models/expense_ledger.dart';
 import '../../domain/models/expense_period.dart';
+import '../../domain/models/variable_pace_forecast.dart';
+import '../../domain/providers/budget_providers.dart';
 import '../../domain/providers/expense_providers.dart';
 
 final _currency =
@@ -47,6 +49,8 @@ class ExpensesDashboardView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final period = ref.watch(expensePeriodProvider);
+    final balance = ref.watch(monthlyBalanceProvider).valueOrNull;
+    final forecast = ref.watch(variablePaceForecastProvider).valueOrNull;
 
     if (dashboard.totalItems == 0) {
       return ListView(
@@ -74,12 +78,42 @@ class ExpensesDashboardView extends ConsumerWidget {
               ref.read(expensePeriodProvider.notifier).state = p,
         ),
         const SizedBox(height: 14),
+        if (balance != null) ...[
+          const _SectionTitle('מאזן חודשי'),
+          const SizedBox(height: 8),
+          _MonthlyBalanceSoftCard(balance: balance),
+          const SizedBox(height: 16),
+        ],
+        if (forecast != null) ...[
+          const _SectionTitle('קצב הוצאות משתנות'),
+          const SizedBox(height: 8),
+          _VariablePaceSoftCard(forecast: forecast),
+          if (forecast.isEarlyMonth) ...[
+            const SizedBox(height: 6),
+            Align(
+              alignment: Alignment.centerRight,
+              child: Text(
+                'תחזית מוקדמת',
+                style: TextStyle(
+                  color: AppColors.muted,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+          const SizedBox(height: 16),
+          const _SectionTitle('תקציב מול בפועל'),
+          const SizedBox(height: 8),
+          _CategoryForecastSoftList(categories: forecast.byCategory),
+          const SizedBox(height: 16),
+        ],
         _KpiStrip(dashboard: dashboard),
         const SizedBox(height: 20),
-        const _SectionTitle('קצב יומי'),
+        const _SectionTitle('מגמת הוצאות יומיות (משתנות)'),
         const SizedBox(height: 4),
         Text(
-          'כמה יוצא בכל יום — ומה היום החריג.',
+          'רק הוצאות משתנות — בלי קבועות שיוצרות פסגות מלאכותיות.',
           style: TextStyle(color: AppColors.muted, fontSize: 12),
         ),
         const SizedBox(height: 8),
@@ -1309,6 +1343,204 @@ class _TopItemsCard extends StatelessWidget {
             ),
             if (i < items.length - 1) const Divider(height: 1),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+class _MonthlyBalanceSoftCard extends StatelessWidget {
+  const _MonthlyBalanceSoftCard({required this.balance});
+
+  final MonthlyBalance balance;
+
+  @override
+  Widget build(BuildContext context) {
+    final net = balance.balance;
+    return SoftCard(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      child: Row(
+        children: [
+          Expanded(
+            child: _softStat(
+              'הכנסות',
+              _currency.format(balance.totalIncome),
+              AppColors.income,
+            ),
+          ),
+          Expanded(
+            child: _softStat(
+              'הוצאות',
+              _currency.format(balance.totalExpenses),
+              AppColors.expenses,
+            ),
+          ),
+          Expanded(
+            child: _softStat(
+              'מאזן חודשי',
+              _currency.format(net),
+              net >= 0 ? AppColors.income : AppColors.danger,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _softStat(String label, String value, Color color) {
+    return Column(
+      children: [
+        Text(label, style: const TextStyle(color: AppColors.muted, fontSize: 12)),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: TextStyle(
+            color: color,
+            fontWeight: FontWeight.w800,
+            fontSize: 15,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _VariablePaceSoftCard extends StatelessWidget {
+  const _VariablePaceSoftCard({required this.forecast});
+
+  final VariablePaceForecast forecast;
+
+  @override
+  Widget build(BuildContext context) {
+    return SoftCard(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      child: Column(
+        children: [
+          _row('הוצאה משתנה עד היום', _currency.format(forecast.variableSpendMtd)),
+          _row('קצב יומי', _currency.format(forecast.dailyPace)),
+          _row('תחזית לסוף חודש', _currency.format(forecast.forecastEom),
+              bold: true),
+        ],
+      ),
+    );
+  }
+
+  Widget _row(String label, String value, {bool bold = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(label, style: const TextStyle(color: AppColors.muted)),
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              fontWeight: bold ? FontWeight.w800 : FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CategoryForecastSoftList extends StatelessWidget {
+  const _CategoryForecastSoftList({required this.categories});
+
+  final List<CategoryPaceForecast> categories;
+
+  @override
+  Widget build(BuildContext context) {
+    if (categories.isEmpty) {
+      return SoftCard(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        child: Text(
+          'אין הוצאות משתנות החודש.',
+          style: TextStyle(color: AppColors.muted),
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        for (final row in categories.take(8)) ...[
+          SoftCard(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        row.category,
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                    Text(
+                      row.status.label,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: switch (row.status) {
+                          BudgetStatus.onTrack => AppColors.income,
+                          BudgetStatus.watch => AppColors.warning,
+                          BudgetStatus.overBudget => AppColors.danger,
+                          BudgetStatus.noBudget => AppColors.muted,
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                _kv('בפועל', _currency.format(row.actualMtd)),
+                _kv(
+                  'תקציב',
+                  row.budget == null ? '—' : _currency.format(row.budget!),
+                ),
+                _kv(
+                  'נשאר',
+                  row.remainingBudget == null
+                      ? '—'
+                      : _currency.format(row.remainingBudget!),
+                ),
+                _kv(
+                  'ניצול',
+                  row.utilizationPercent == null
+                      ? '—'
+                      : '${row.utilizationPercent!.toStringAsFixed(1)}%',
+                ),
+                _kv('תחזית לסוף חודש', _currency.format(row.forecastEom)),
+                if (row.forecastVariance != null)
+                  _kv(
+                    row.forecastVariance! > 0 ? 'צפי חריגה' : 'צפי יתרה',
+                    _currency.format(row.forecastVariance!.abs()),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
+      ],
+    );
+  }
+
+  Widget _kv(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: const TextStyle(color: AppColors.muted, fontSize: 13),
+            ),
+          ),
+          Text(
+            value,
+            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+          ),
         ],
       ),
     );

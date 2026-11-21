@@ -126,7 +126,7 @@ class _CashflowBanner extends StatelessWidget {
                 const SizedBox(width: AppSpacing.sm),
                 Expanded(
                   child: _CashStat(
-                    label: 'נטו',
+                    label: 'מאזן חודשי',
                     value: _currency.format(net),
                   ),
                 ),

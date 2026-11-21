@@ -55,7 +55,8 @@ DateTime? periodEndExclusive(ExpensePeriod period, {DateTime? now}) {
   }
 }
 
-/// Filters expenses to those whose calendar date falls inside [period].
+/// Filters expenses to those whose [ExpenseModel.transactionDate] falls
+/// inside [period] (purchase_date / transaction_date — not created_at).
 List<ExpenseModel> filterExpensesByPeriod(
   List<ExpenseModel> expenses,
   ExpensePeriod period, {
@@ -68,7 +69,7 @@ List<ExpenseModel> filterExpensesByPeriod(
   return expenses
       .where(
         (e) => expenseInRange(
-          e.createdAt,
+          e.transactionDate,
           startInclusive: start,
           endExclusive: end,
         ),

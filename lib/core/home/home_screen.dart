@@ -25,7 +25,7 @@ import '../widgets/adaptive_form.dart';
 import '../widgets/app_section_header.dart';
 import 'home_digest.dart';
 
-final _dateFormat = DateFormat('EEEE, d MMMM yyyy', 'he');
+final _dateFormat = DateFormat('EEEE, d בMMMM', 'he');
 final _shortDate = DateFormat('dd/MM', 'he');
 final _currency =
     NumberFormat.currency(locale: 'he_IL', symbol: '₪', decimalDigits: 0);
@@ -33,11 +33,16 @@ final _currency =
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
+  static const String _userFirstName = 'ניר';
+
   String _greeting() {
     final hour = DateTime.now().hour;
-    if (hour < 12) return 'בוקר טוב';
-    if (hour < 18) return 'צהריים טובים';
-    return 'ערב טוב';
+    final base = hour < 12
+        ? 'בוקר טוב'
+        : hour < 18
+            ? 'צהריים טובים'
+            : 'ערב טוב';
+    return '$base, $_userFirstName';
   }
 
   Future<void> _openTaskForm(

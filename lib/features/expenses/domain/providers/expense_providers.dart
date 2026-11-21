@@ -62,7 +62,7 @@ final expenseLedgerProvider =
     final future = all
         .where(
           (e) => !expenseInRange(
-            e.createdAt,
+            e.transactionDate,
             endExclusive: nextMonth,
           ),
         )
@@ -98,7 +98,7 @@ final monthExpenseTotalProvider = Provider<AsyncValue<double>>((ref) {
         (expenses) => expenses
             .where(
               (e) => expenseInRange(
-                e.createdAt,
+                e.transactionDate,
                 startInclusive: start,
                 endExclusive: end,
               ),
