@@ -16,6 +16,7 @@ class RecurringExpenseModel {
     this.lastGeneratedMonth,
     required this.createdAt,
     this.chargedThisMonth = false,
+    this.expenseBehaviorType,
   });
 
   final String id;
@@ -34,6 +35,9 @@ class RecurringExpenseModel {
 
   /// Whether a charge already exists for the current calendar month.
   final bool chargedThisMonth;
+
+  /// Stored behavior when set; otherwise derived at read time.
+  final String? expenseBehaviorType;
 
   double get actualAmount =>
       amount == null ? 0 : SharedExpenseFlag.actualAmount(amount!, sharedExp);
@@ -72,6 +76,7 @@ class RecurringExpenseModel {
           ? null
           : DateTime.parse(json['last_generated_month'] as String),
       createdAt: DateTime.parse(json['created_at'] as String),
+      expenseBehaviorType: json['expense_behavior_type'] as String?,
     );
   }
 
@@ -87,6 +92,8 @@ class RecurringExpenseModel {
       'is_active': isActive,
       'start_date': _dateOnly(startDate),
       'end_date': _dateOnly(endDate),
+      if (expenseBehaviorType != null)
+        'expense_behavior_type': expenseBehaviorType,
     };
   }
 
@@ -113,6 +120,7 @@ class RecurringExpenseModel {
     DateTime? lastGeneratedMonth,
     bool clearLastGenerated = false,
     bool? chargedThisMonth,
+    String? expenseBehaviorType,
   }) {
     return RecurringExpenseModel(
       id: id,
@@ -131,6 +139,7 @@ class RecurringExpenseModel {
           : (lastGeneratedMonth ?? this.lastGeneratedMonth),
       createdAt: createdAt,
       chargedThisMonth: chargedThisMonth ?? this.chargedThisMonth,
+      expenseBehaviorType: expenseBehaviorType ?? this.expenseBehaviorType,
     );
   }
 

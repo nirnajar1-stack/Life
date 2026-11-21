@@ -348,7 +348,7 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
                 Tab(text: 'ניתוח'),
                 Tab(text: 'תנועות'),
                 Tab(text: 'תקציב'),
-                Tab(text: 'קבועות'),
+                Tab(text: 'התחייבויות'),
                 Tab(text: 'תשלומים'),
               ],
             ),
@@ -461,7 +461,7 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
                             ),
                             const SizedBox(height: AppSpacing.sm),
                             Text(
-                              'סוג',
+                              'התנהגות',
                               style: Theme.of(context)
                                   .textTheme
                                   .labelMedium
@@ -473,14 +473,15 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
                             const SizedBox(height: AppSpacing.xs),
                             AppFilterChipBar(
                               children: [
-                                for (final f in ExpenseNatureFilter.values)
+                                for (final f in ExpenseBehaviorFilter.values)
                                   SoftFilterChip(
                                     label: f.label,
-                                    selected: filters.nature == f,
+                                    selected: filters.behavior == f,
                                     onSelected: (_) => ref
                                         .read(
                                             expenseLedgerFiltersProvider.notifier)
-                                        .state = filters.copyWith(nature: f),
+                                        .state =
+                                        filters.copyWith(behavior: f),
                                   ),
                               ],
                             ),
@@ -535,7 +536,7 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
                   ),
                   // 3. תקציב
                   BudgetTab(onRefresh: () => _refresh()),
-                  // 4. קבועות
+                  // 4. התחייבויות והוצאות חוזרות
                   RecurringExpensesTab(onRefresh: () => _refresh()),
                   // 5. תשלומים
                   InstallmentPlansTab(onRefresh: () => _refresh()),
@@ -590,14 +591,14 @@ class _ExpensesFabState extends State<_ExpensesFab> {
 
   @override
   Widget build(BuildContext context) {
-    // Tabs: 0 ניתוח, 1 תנועות, 2 תקציב, 3 קבועות, 4 תשלומים
+    // Tabs: 0 ניתוח, 1 תנועות, 2 תקציב, 3 התחייבויות, 4 תשלומים
     final tab = _tabController?.index ?? 0;
     final VoidCallback onPressed;
     final String label;
     switch (tab) {
       case 3:
         onPressed = widget.onAddRecurring;
-        label = 'קבועה';
+        label = 'התחייבות';
       case 4:
         onPressed = widget.onAddInstallment;
         label = 'תוכנית';

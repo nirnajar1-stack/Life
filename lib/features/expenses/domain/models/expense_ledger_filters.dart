@@ -1,5 +1,5 @@
+import 'expense_behavior.dart';
 import 'expense_ledger.dart';
-import 'expense_nature.dart';
 
 /// Ownership filter for the expenses ledger.
 enum ExpenseSharedFilter {
@@ -21,38 +21,43 @@ extension ExpenseSharedFilterX on ExpenseSharedFilter {
   }
 }
 
-/// Nature filter for the expenses ledger (`null` = all).
-enum ExpenseNatureFilter {
+/// Behavior filter for the expenses ledger (`all` = no filter).
+enum ExpenseBehaviorFilter {
   all,
-  variable,
-  fixed,
-  installment,
+  fixedCommitment,
+  recurringVariable,
+  variableDiscretionary,
+  oneTime,
 }
 
-extension ExpenseNatureFilterX on ExpenseNatureFilter {
+extension ExpenseBehaviorFilterX on ExpenseBehaviorFilter {
   String get label {
     switch (this) {
-      case ExpenseNatureFilter.all:
+      case ExpenseBehaviorFilter.all:
         return 'הכל';
-      case ExpenseNatureFilter.variable:
+      case ExpenseBehaviorFilter.fixedCommitment:
+        return 'התחייבות קבועה';
+      case ExpenseBehaviorFilter.recurringVariable:
+        return 'חוזרת משתנה';
+      case ExpenseBehaviorFilter.variableDiscretionary:
         return 'משתנה';
-      case ExpenseNatureFilter.fixed:
-        return 'קבועה';
-      case ExpenseNatureFilter.installment:
-        return 'תשלומים';
+      case ExpenseBehaviorFilter.oneTime:
+        return 'חד־פעמית';
     }
   }
 
-  ExpenseNature? get nature {
+  ExpenseBehaviorType? get behavior {
     switch (this) {
-      case ExpenseNatureFilter.all:
+      case ExpenseBehaviorFilter.all:
         return null;
-      case ExpenseNatureFilter.variable:
-        return ExpenseNature.variable;
-      case ExpenseNatureFilter.fixed:
-        return ExpenseNature.fixed;
-      case ExpenseNatureFilter.installment:
-        return ExpenseNature.installment;
+      case ExpenseBehaviorFilter.fixedCommitment:
+        return ExpenseBehaviorType.fixedCommitment;
+      case ExpenseBehaviorFilter.recurringVariable:
+        return ExpenseBehaviorType.recurringVariable;
+      case ExpenseBehaviorFilter.variableDiscretionary:
+        return ExpenseBehaviorType.variableDiscretionary;
+      case ExpenseBehaviorFilter.oneTime:
+        return ExpenseBehaviorType.oneTime;
     }
   }
 }
@@ -61,22 +66,23 @@ extension ExpenseNatureFilterX on ExpenseNatureFilter {
 class ExpenseLedgerFilters {
   const ExpenseLedgerFilters({
     this.shared = ExpenseSharedFilter.all,
-    this.nature = ExpenseNatureFilter.all,
+    this.behavior = ExpenseBehaviorFilter.all,
   });
 
   final ExpenseSharedFilter shared;
-  final ExpenseNatureFilter nature;
+  final ExpenseBehaviorFilter behavior;
 
   bool get isActive =>
-      shared != ExpenseSharedFilter.all || nature != ExpenseNatureFilter.all;
+      shared != ExpenseSharedFilter.all ||
+      behavior != ExpenseBehaviorFilter.all;
 
   ExpenseLedgerFilters copyWith({
     ExpenseSharedFilter? shared,
-    ExpenseNatureFilter? nature,
+    ExpenseBehaviorFilter? behavior,
   }) {
     return ExpenseLedgerFilters(
       shared: shared ?? this.shared,
-      nature: nature ?? this.nature,
+      behavior: behavior ?? this.behavior,
     );
   }
 }
@@ -94,17 +100,10 @@ bool transactionMatchesLedgerFilters(
       if (tx.isShared) return false;
   }
 
-  final wanted = filters.nature.nature;
+  final wanted = filters.behavior.behavior;
   if (wanted != null) {
-    final natures = tx.items
-        .map(
-          (item) => ExpenseNatureX.resolve(
-            isFixed: item.isFixed,
-            installmentGroupId: item.installmentGroupId,
-          ),
-        )
-        .toSet();
-    if (!natures.contains(wanted)) return false;
+    final behaviors = tx.items.map(deriveExpenseBehavior).toSet();
+    if (!behaviors.contains(wanted)) return false;
   }
 
   return true;

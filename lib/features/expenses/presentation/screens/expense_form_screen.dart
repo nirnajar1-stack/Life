@@ -6,6 +6,7 @@ import 'package:intl/intl.dart' hide TextDirection;
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/adaptive_form.dart';
 import '../../data/models/expense_model.dart';
+import '../../domain/models/expense_behavior.dart';
 import '../../domain/models/expense_category_taxonomy.dart';
 import '../../domain/models/expense_nature.dart';
 import '../../domain/providers/expense_providers.dart';
@@ -136,6 +137,9 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
       if (widget.isEditing) {
         final existing = widget.expense!;
         // Editing a single charge row — keep installment metadata as-is.
+        final behavior = _nature == ExpenseNature.fixed
+            ? ExpenseBehaviorType.fixedCommitment
+            : ExpenseBehaviorType.variableDiscretionary;
         final updated = existing.copyWith(
           itemName: _itemNameController.text.trim(),
           amount: amount,
@@ -145,8 +149,11 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
           purchaseDate: DateTime(_date.year, _date.month, _date.day),
           dateSource: existing.dateSource ?? 'manual',
           paidAmount: amount,
-          isFixed: _nature == ExpenseNature.fixed ? 1 : 0,
+          isFixed: behavior.isFixedDbValue,
           sharedExp: sharedValue,
+          expenseBehaviorType: existing.isInstallment
+              ? ExpenseBehaviorType.fixedCommitment.dbValue
+              : behavior.dbValue,
         );
         await repo.updateExpense(updated);
 
@@ -169,6 +176,9 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
               sharedExp: sharedValue,
             );
       } else {
+        final behavior = _nature == ExpenseNature.fixed
+            ? ExpenseBehaviorType.fixedCommitment
+            : ExpenseBehaviorType.variableDiscretionary;
         final created = ExpenseModel(
           id: 0,
           createdAt: _date,
@@ -176,7 +186,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
           amount: amount,
           category: _parentCategory,
           subCategory: subCategory,
-          isFixed: _nature.isFixedDbValue,
+          isFixed: behavior.isFixedDbValue,
           source: 'life_app',
           uuid: '',
           insertedAt: DateTime.now(),
@@ -184,6 +194,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
           purchaseDate: DateTime(_date.year, _date.month, _date.day),
           dateSource: 'manual',
           paidAmount: amount,
+          expenseBehaviorType: behavior.dbValue,
         );
         await repo.addExpense(created);
       }

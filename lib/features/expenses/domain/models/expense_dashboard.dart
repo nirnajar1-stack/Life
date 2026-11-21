@@ -1,4 +1,5 @@
 import '../../data/models/expense_model.dart';
+import 'expense_behavior.dart';
 import 'expense_calendar.dart';
 import 'expense_category_taxonomy.dart';
 import 'expense_ledger.dart';
@@ -273,12 +274,9 @@ List<DaySpend> _buildDailyTrend(
   final Map<String, double> dayTotals = {};
   final Map<String, int> dayCounts = {};
   for (final e in expenses) {
-    // Daily burn reflects variable consumption only — fixed peaks distort pace.
-    final nature = ExpenseNatureX.resolve(
-      isFixed: e.isFixed,
-      installmentGroupId: e.installmentGroupId,
-    );
-    if (nature != ExpenseNature.variable) continue;
+    // Daily burn: discretionary variable only — commitments / installments /
+    // recurring utilities / exceptional one-offs distort pace.
+    if (!deriveExpenseBehavior(e).countsInDailyPace) continue;
 
     final day = e.transactionDate;
     if (day.isBefore(windowStart) || day.isAfter(windowEnd)) continue;

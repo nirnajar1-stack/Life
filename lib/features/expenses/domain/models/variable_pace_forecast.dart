@@ -1,7 +1,7 @@
 import '../../data/models/expense_model.dart';
 import 'expense_amounts.dart';
+import 'expense_behavior.dart';
 import 'expense_category_taxonomy.dart';
-import 'expense_nature.dart';
 
 /// Config thresholds for budget status (not hardcoded in UI).
 class BudgetStatusThresholds {
@@ -153,11 +153,10 @@ VariablePaceForecast buildVariablePaceForecast(
   double total = 0;
 
   for (final e in expenses) {
-    final nature = ExpenseNatureX.resolve(
-      isFixed: e.isFixed,
-      installmentGroupId: e.installmentGroupId,
-    );
-    if (nature != ExpenseNature.variable) continue;
+    // Daily pace: variable_discretionary only.
+    // Installments / fixed / recurring_variable / one_time are excluded.
+    final behavior = deriveExpenseBehavior(e);
+    if (!behavior.countsInDailyPace) continue;
 
     final tx = transactionDate(e);
     if (tx.isBefore(monthStart) || !tx.isBefore(monthEndExclusive)) continue;
@@ -222,11 +221,8 @@ List<({DateTime date, double total})> buildDailyVariableTrend(
   final totals = <String, double>{};
 
   for (final e in expenses) {
-    final nature = ExpenseNatureX.resolve(
-      isFixed: e.isFixed,
-      installmentGroupId: e.installmentGroupId,
-    );
-    if (nature != ExpenseNature.variable) continue;
+    final behavior = deriveExpenseBehavior(e);
+    if (!behavior.countsInDailyPace) continue;
 
     final tx = transactionDate(e);
     if (tx.isBefore(monthStart) || tx.isAfter(today)) continue;
@@ -284,16 +280,20 @@ class MonthlyBalance {
         continue;
       }
       final amount = effectiveAmount(e);
-      switch (ExpenseNatureX.resolve(
-        isFixed: e.isFixed,
-        installmentGroupId: e.installmentGroupId,
-      )) {
-        case ExpenseNature.fixed:
+      // Monthly cashflow includes installments + all behavior types.
+      // Keep installment breakout for UI; otherwise bucket by behavior.
+      final mid = e.installmentGroupId?.trim();
+      if (mid != null && mid.isNotEmpty) {
+        installment += amount;
+        continue;
+      }
+      switch (deriveExpenseBehavior(e)) {
+        case ExpenseBehaviorType.fixedCommitment:
           fixed += amount;
-        case ExpenseNature.variable:
+        case ExpenseBehaviorType.recurringVariable:
+        case ExpenseBehaviorType.variableDiscretionary:
+        case ExpenseBehaviorType.oneTime:
           variable += amount;
-        case ExpenseNature.installment:
-          installment += amount;
       }
     }
 
