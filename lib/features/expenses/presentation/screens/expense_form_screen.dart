@@ -142,6 +142,9 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
           category: _parentCategory,
           subCategory: subCategory,
           createdAt: _date,
+          purchaseDate: DateTime(_date.year, _date.month, _date.day),
+          dateSource: existing.dateSource ?? 'manual',
+          paidAmount: amount,
           isFixed: _nature == ExpenseNature.fixed ? 1 : 0,
           sharedExp: sharedValue,
         );
@@ -178,6 +181,9 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
           uuid: '',
           insertedAt: DateTime.now(),
           sharedExp: sharedValue,
+          purchaseDate: DateTime(_date.year, _date.month, _date.day),
+          dateSource: 'manual',
+          paidAmount: amount,
         );
         await repo.addExpense(created);
       }

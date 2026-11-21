@@ -119,7 +119,7 @@ class _CashflowBanner extends StatelessWidget {
                   Container(width: 1, height: 36, color: AppColors.line),
                   Expanded(
                     child: _StatCell(
-                      label: 'נטו',
+                      label: 'מאזן חודשי',
                       value: _currency.format(net),
                       color: net >= 0 ? AppColors.income : AppColors.danger,
                     ),

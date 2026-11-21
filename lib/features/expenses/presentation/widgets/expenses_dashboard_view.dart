@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 
+import '../../../../core/theme/app_theme.dart';
 import '../../data/models/expense_model.dart';
 import '../../domain/models/expense_category_taxonomy.dart';
 import '../../domain/models/expense_dashboard.dart';
 import '../../domain/models/expense_ledger.dart';
 import '../../domain/models/expense_period.dart';
+import '../../domain/models/variable_pace_forecast.dart';
+import '../../domain/providers/budget_providers.dart';
 import '../../domain/providers/expense_providers.dart';
 
 final _currency =
@@ -44,6 +47,9 @@ class ExpensesDashboardView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final period = ref.watch(expensePeriodProvider);
+    final balanceAsync = ref.watch(monthlyBalanceProvider);
+    final forecastAsync = ref.watch(variablePaceForecastProvider);
+    final dailyAsync = ref.watch(dailyVariableTrendProvider);
 
     if (dashboard.totalItems == 0) {
       return ListView(
@@ -62,6 +68,10 @@ class ExpensesDashboardView extends ConsumerWidget {
       );
     }
 
+    final balance = balanceAsync.valueOrNull;
+    final forecast = forecastAsync.valueOrNull;
+    final daily = dailyAsync.valueOrNull ?? const <DaySpend>[];
+
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 96),
       children: [
@@ -71,6 +81,41 @@ class ExpensesDashboardView extends ConsumerWidget {
               ref.read(expensePeriodProvider.notifier).state = p,
         ),
         const SizedBox(height: 14),
+
+        // 1. Monthly Balance
+        if (balance != null) ...[
+          const _SectionTitle('מאזן חודשי'),
+          const SizedBox(height: 8),
+          _MonthlyBalanceCard(balance: balance),
+          const SizedBox(height: 16),
+        ],
+
+        // 2–4. Variable MTD / Forecast / Budget status
+        if (forecast != null) ...[
+          const _SectionTitle('קצב הוצאות משתנות'),
+          const SizedBox(height: 8),
+          _VariablePaceCard(forecast: forecast),
+          if (forecast.isEarlyMonth) ...[
+            const SizedBox(height: 6),
+            const Align(
+              alignment: Alignment.centerRight,
+              child: _EarlyForecastLabel(),
+            ),
+          ],
+          const SizedBox(height: 16),
+          const _SectionTitle('תקציב מול בפועל'),
+          const SizedBox(height: 8),
+          _CategoryBudgetForecastList(categories: forecast.byCategory),
+          const SizedBox(height: 16),
+        ],
+
+        // 5. Daily variable trend
+        const _SectionTitle('מגמת הוצאות יומיות (משתנות)'),
+        const SizedBox(height: 8),
+        _DailyVariableTrendCard(days: daily),
+        const SizedBox(height: 20),
+
+        // Existing analytics (lower priority)
         _KpiStrip(dashboard: dashboard),
         const SizedBox(height: 20),
         LayoutBuilder(
@@ -176,6 +221,296 @@ class ExpensesDashboardView extends ConsumerWidget {
         const SizedBox(height: 8),
         _TopItemsCard(items: dashboard.topItems),
       ],
+    );
+  }
+}
+
+class _EarlyForecastLabel extends StatelessWidget {
+  const _EarlyForecastLabel();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppColors.line.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        'תחזית מוקדמת',
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: AppColors.muted,
+              fontWeight: FontWeight.w600,
+            ),
+      ),
+    );
+  }
+}
+
+class _MonthlyBalanceCard extends StatelessWidget {
+  const _MonthlyBalanceCard({required this.balance});
+
+  final MonthlyBalance balance;
+
+  @override
+  Widget build(BuildContext context) {
+    final net = balance.balance;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: _miniStat('הכנסות', _currency.format(balance.totalIncome),
+                      AppColors.income),
+                ),
+                Expanded(
+                  child: _miniStat('הוצאות', _currency.format(balance.totalExpenses),
+                      AppColors.expenses),
+                ),
+                Expanded(
+                  child: _miniStat(
+                    'מאזן חודשי',
+                    _currency.format(net),
+                    net >= 0 ? AppColors.income : AppColors.danger,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _miniStat(String label, String value, Color color) {
+    return Column(
+      children: [
+        Text(label, style: const TextStyle(color: AppColors.muted, fontSize: 12)),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: TextStyle(
+            color: color,
+            fontWeight: FontWeight.w800,
+            fontSize: 16,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _VariablePaceCard extends StatelessWidget {
+  const _VariablePaceCard({required this.forecast});
+
+  final VariablePaceForecast forecast;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          children: [
+            _row('הוצאה משתנה עד היום', _currency.format(forecast.variableSpendMtd)),
+            _row('קצב יומי', _currency.format(forecast.dailyPace)),
+            _row('תחזית לסוף חודש', _currency.format(forecast.forecastEom),
+                emphasize: true),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _row(String label, String value, {bool emphasize = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(label, style: const TextStyle(color: AppColors.muted)),
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              fontWeight: emphasize ? FontWeight.w800 : FontWeight.w600,
+              fontSize: emphasize ? 16 : 14,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CategoryBudgetForecastList extends StatelessWidget {
+  const _CategoryBudgetForecastList({required this.categories});
+
+  final List<CategoryPaceForecast> categories;
+
+  @override
+  Widget build(BuildContext context) {
+    if (categories.isEmpty) {
+      return const Card(
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: Text(
+            'אין הוצאות משתנות החודש.',
+            style: TextStyle(color: AppColors.muted),
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        for (final row in categories.take(8)) ...[
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          row.category,
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                      Text(
+                        row.status.label,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: switch (row.status) {
+                            BudgetStatus.onTrack => AppColors.income,
+                            BudgetStatus.watch => AppColors.warning,
+                            BudgetStatus.overBudget => AppColors.danger,
+                            BudgetStatus.noBudget => AppColors.muted,
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  _kv('בפועל', _currency.format(row.actualMtd)),
+                  _kv(
+                    'תקציב',
+                    row.budget == null ? '—' : _currency.format(row.budget!),
+                  ),
+                  _kv(
+                    'נשאר',
+                    row.remainingBudget == null
+                        ? '—'
+                        : _currency.format(row.remainingBudget!),
+                  ),
+                  _kv(
+                    'ניצול',
+                    row.utilizationPercent == null
+                        ? '—'
+                        : '${row.utilizationPercent!.toStringAsFixed(1)}%',
+                  ),
+                  _kv('תחזית לסוף חודש', _currency.format(row.forecastEom)),
+                  if (row.forecastVariance != null)
+                    _kv(
+                      row.forecastVariance! > 0 ? 'צפי חריגה' : 'צפי יתרה',
+                      _currency.format(row.forecastVariance!.abs()),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
+      ],
+    );
+  }
+
+  Widget _kv(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(label, style: const TextStyle(color: AppColors.muted, fontSize: 13)),
+          ),
+          Text(value, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+        ],
+      ),
+    );
+  }
+}
+
+class _DailyVariableTrendCard extends StatelessWidget {
+  const _DailyVariableTrendCard({required this.days});
+
+  final List<DaySpend> days;
+
+  @override
+  Widget build(BuildContext context) {
+    if (days.isEmpty) {
+      return const Card(
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: Text('אין הוצאות משתנות להצגה.',
+              style: TextStyle(color: AppColors.muted)),
+        ),
+      );
+    }
+
+    final max = days.fold<double>(0, (m, d) => d.total > m ? d.total : m);
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 14, 12, 10),
+        child: SizedBox(
+          height: 120,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              for (final day in days)
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 1),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        Expanded(
+                          child: Align(
+                            alignment: Alignment.bottomCenter,
+                            child: FractionallySizedBox(
+                              heightFactor: max <= 0
+                                  ? 0
+                                  : (day.total / max).clamp(0.04, 1.0),
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  color: AppColors.expenses.withValues(alpha: 0.75),
+                                  borderRadius: BorderRadius.circular(3),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${day.date.day}',
+                          style: const TextStyle(
+                            fontSize: 9,
+                            color: AppColors.muted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

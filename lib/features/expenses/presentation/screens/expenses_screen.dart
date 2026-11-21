@@ -14,10 +14,12 @@ import '../../domain/models/expense_period.dart';
 import '../../domain/providers/expense_providers.dart';
 import '../../domain/providers/installment_plan_providers.dart';
 import '../../domain/providers/recurring_expense_providers.dart';
+import '../widgets/budget_tab.dart';
 import '../widgets/expenses_dashboard_view.dart';
 import '../widgets/installment_plans_tab.dart';
 import '../widgets/recurring_expenses_tab.dart';
 import '../widgets/shared_split_controls.dart';
+import '../../domain/providers/budget_providers.dart';
 import 'expense_form_screen.dart';
 import 'installment_plan_form_screen.dart';
 import 'recurring_expense_form_screen.dart';
@@ -68,6 +70,7 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
     ref.invalidate(installmentPlansProvider);
     ref.invalidate(expenseLedgerProvider);
     ref.invalidate(expenseDashboardProvider);
+    ref.invalidate(monthlyBudgetsProvider);
   }
 
   Future<void> _openForm(BuildContext context, WidgetRef ref,
@@ -332,7 +335,7 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: DefaultTabController(
-        length: 4,
+        length: 5,
         child: Scaffold(
           appBar: AppBar(
             title: const Text('הוצאות'),
@@ -340,10 +343,11 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
             bottom: const TabBar(
               isScrollable: true,
               tabs: [
-                Tab(text: 'פנקס'),
+                Tab(text: 'ניתוח'),
+                Tab(text: 'תנועות'),
+                Tab(text: 'תקציב'),
                 Tab(text: 'קבועות'),
                 Tab(text: 'תשלומים'),
-                Tab(text: 'ניתוח'),
               ],
             ),
           ),
@@ -366,6 +370,26 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
             context: context,
             child: TabBarView(
                 children: [
+                  // 1. ניתוח
+                  RefreshIndicator(
+                    onRefresh: () => _refresh(),
+                    child: dashboardAsync.when(
+                      loading: () =>
+                          const Center(child: CircularProgressIndicator()),
+                      error: (e, _) => ListView(
+                        children: [
+                          AppErrorState(
+                            title: 'שגיאה בטעינת ההוצאות',
+                            error: e,
+                            onRetry: () => _refresh(),
+                          ),
+                        ],
+                      ),
+                      data: (dashboard) =>
+                          ExpensesDashboardView(dashboard: dashboard),
+                    ),
+                  ),
+                  // 2. תנועות
                   RefreshIndicator(
                     onRefresh: () => _refresh(),
                     child: ledgerAsync.when(
@@ -454,26 +478,12 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
                       },
                     ),
                   ),
+                  // 3. תקציב
+                  BudgetTab(onRefresh: () => _refresh()),
+                  // 4. קבועות
                   RecurringExpensesTab(onRefresh: () => _refresh()),
+                  // 5. תשלומים
                   InstallmentPlansTab(onRefresh: () => _refresh()),
-                  RefreshIndicator(
-                    onRefresh: () => _refresh(),
-                    child: dashboardAsync.when(
-                      loading: () =>
-                          const Center(child: CircularProgressIndicator()),
-                      error: (e, _) => ListView(
-                        children: [
-                          AppErrorState(
-                            title: 'שגיאה בטעינת ההוצאות',
-                            error: e,
-                            onRetry: () => _refresh(),
-                          ),
-                        ],
-                      ),
-                      data: (dashboard) =>
-                          ExpensesDashboardView(dashboard: dashboard),
-                    ),
-                  ),
                 ],
               ),
             ),
@@ -525,14 +535,15 @@ class _ExpensesFabState extends State<_ExpensesFab> {
 
   @override
   Widget build(BuildContext context) {
+    // Tabs: 0 ניתוח, 1 תנועות, 2 תקציב, 3 קבועות, 4 תשלומים
     final tab = _tabController?.index ?? 0;
     final VoidCallback onPressed;
     final String label;
     switch (tab) {
-      case 1:
+      case 3:
         onPressed = widget.onAddRecurring;
         label = 'קבועה';
-      case 2:
+      case 4:
         onPressed = widget.onAddInstallment;
         label = 'תוכנית';
       default:

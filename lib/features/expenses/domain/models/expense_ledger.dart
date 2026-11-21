@@ -13,7 +13,7 @@ class ExpenseTransaction {
   /// Line items in this transaction (always at least one).
   final List<ExpenseModel> items;
 
-  /// Transaction date (taken from the earliest item's createdAt).
+  /// Transaction date (earliest item transactionDate / purchase_date).
   final DateTime date;
 
   /// Shared message_id when this is a grouped receipt; null for singles.
@@ -152,7 +152,7 @@ List<ExpenseMonthSection> buildExpenseLedger(List<ExpenseModel> expenses) {
     final items = List<ExpenseModel>.from(entry.value)
       ..sort((a, b) => b.amount.compareTo(a.amount));
     final date = items
-        .map((e) => e.createdAt)
+        .map((e) => e.transactionDate)
         .reduce((a, b) => a.isBefore(b) ? a : b);
     transactions.add(ExpenseTransaction(
       items: items,
@@ -164,7 +164,7 @@ List<ExpenseMonthSection> buildExpenseLedger(List<ExpenseModel> expenses) {
   for (final expense in singles) {
     transactions.add(ExpenseTransaction(
       items: [expense],
-      date: expense.createdAt,
+      date: expense.transactionDate,
       messageId: null,
     ));
   }
