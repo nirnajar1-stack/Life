@@ -48,3 +48,4 @@ app.*.map.json
 /.flutter-sdk/
 /.pub-cache/
 __pycache__/
+supabase/.temp/
